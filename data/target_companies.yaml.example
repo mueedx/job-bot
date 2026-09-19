@@ -1,0 +1,51 @@
+# Curated company board slugs for Greenhouse / Lever / Ashby ingestion (Phase 2).
+
+greenhouse:
+  - langchain
+  - replicate
+  - together-ai
+  - anysphere
+  - polygon
+  - chainlink
+  - anthropic
+  - huggingface
+  - stripe
+  - vercel
+  - cloudflare
+  - discord
+  - figment
+  - alchemy
+  - opensea
+  - coinbase
+  - rippling
+  - databricks
+  - snowflake
+  - airbnb
+
+lever:
+  - openai
+  - notion
+  - figma
+  - ramp
+  - linear
+  - netflix
+  - spotify
+  - shopify
+  - twilio
+  - palantir
+
+ashby:
+  - cursor
+  - perplexity
+  - rethink
+  - breeze
+  - vercel
+  - runway
+  - elevenlabs
+  - hectoraai
+  - wandb
+  - chromium
+
+notes: >
+  Expand this list over time. Scrapers iterate these slugs against
+  public board APIs (Greenhouse boards-api, Lever postings, Ashby job board).

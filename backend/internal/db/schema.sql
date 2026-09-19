@@ -1,0 +1,53 @@
+CREATE TABLE IF NOT EXISTS jobs (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    source              TEXT NOT NULL,
+    source_id           TEXT NOT NULL,
+    url                 TEXT NOT NULL UNIQUE,
+    title               TEXT NOT NULL,
+    company             TEXT NOT NULL,
+    location            TEXT,
+    is_remote           BOOLEAN DEFAULT 1,
+    is_relocation       BOOLEAN DEFAULT 0,
+    salary_min          INTEGER,
+    salary_max          INTEGER,
+    description         TEXT NOT NULL,
+    posted_at           DATETIME,
+    status              TEXT DEFAULT 'discovered',
+    created_at          DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS matches (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id              INTEGER NOT NULL UNIQUE,
+    score               REAL NOT NULL,
+    track               TEXT NOT NULL,
+    matched_skills      TEXT,
+    missing_skills      TEXT,
+    score_reasons       TEXT,
+    scored_at           DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS applications (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id              INTEGER NOT NULL UNIQUE,
+    resume_path         TEXT NOT NULL,
+    cover_letter        TEXT NOT NULL,
+    custom_qa           TEXT,
+    submission_method   TEXT NOT NULL,
+    submitted_at        DATETIME,
+    auto_applied        BOOLEAN DEFAULT 0,
+    submission_status   TEXT DEFAULT 'pending',
+    response_status     TEXT DEFAULT 'no_reply',
+    notes               TEXT,
+    FOREIGN KEY(job_id) REFERENCES jobs(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS submission_logs (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    application_id      INTEGER NOT NULL,
+    event_type          TEXT NOT NULL,
+    payload             TEXT,
+    created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(application_id) REFERENCES applications(id) ON DELETE CASCADE
+);

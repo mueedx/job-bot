@@ -1,0 +1,59 @@
+name: Bug report
+description: Something is broken or does not behave as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. For ingestion problems, the log lines matter more
+        than anything else — please include them.
+        Security issues should go to SECURITY.md instead, not here.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. docker compose up --build
+        2. press Run search
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: how
+    attributes:
+      label: How are you running it?
+      options:
+        - Docker Compose
+        - Local (go run + npm run dev)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: From the search panel, `GET /api/ingest/status`, or `docker compose logs api`.
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `go version` and/or `docker version`, plus your OS.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I removed API keys, tokens and personal details from the logs I pasted.
+          required: true

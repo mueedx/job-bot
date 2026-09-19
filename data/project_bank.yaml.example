@@ -1,0 +1,38 @@
+# Facts used to write cover letters.
+
+# The drafter is instructed to use ONLY what is in this file, so anything you
+# leave out will be missing from your letters. Copy this file to
+# `project_bank.yaml` and replace the examples with your real history:
+#
+#   cp project_bank.yaml.example project_bank.yaml
+#
+# `track_hints` decides which resume track a project is most relevant to
+# (fde | blockchain | fullstack). List several when it genuinely spans tracks.
+
+projects:
+  - name: Example Platform
+    track_hints: [fullstack]
+    bullets:
+      - "Built and shipped <feature> using Next.js, NestJS, and PostgreSQL."
+      - "Cut p95 latency by <number>% by adding indexes and caching."
+      - "Owned the work end to end, from database schema to UI."
+
+  - name: Example Protocol
+    track_hints: [blockchain]
+    bullets:
+      - "Wrote and deployed Solidity contracts to mainnet."
+      - "Indexed on-chain data with subgraphs and served it over a GraphQL API."
+
+  - name: Example Customer Rollout
+    track_hints: [fde, fullstack]
+    bullets:
+      - "Deployed LLM agents for a customer, wiring up MCP tool calls."
+      - "Ran onboarding sessions and turned customer feedback into product changes."
+
+candidate:
+  name: Your Name
+  portfolio: https://your-site.example
+  strengths:
+    - Full-Stack Engineering (Next.js/NestJS)
+    - Backend Blockchain (EVM/Solidity)
+    - Forward Deployed / AI Engineering (MCP/Agents)

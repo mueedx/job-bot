@@ -1,0 +1,43 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      # Optional: `cp .env.example .env` and fill in secrets when you want them.
+      - path: .env
+        required: false
+    environment:
+      ADDR: ":8000"
+      DATA_DIR: /data
+      RESUME_DIR: /app/resumes
+      DASHBOARD_URL: ${DASHBOARD_URL:-http://localhost:3000}
+    volumes:
+      # Your SQLite DB and editable YAML live in the repo's data/ directory.
+      - ./data:/data
+      # Drop your resume PDFs in ./resumes — mounted read-only.
+      - ./resumes:/app/resumes:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    restart: unless-stopped

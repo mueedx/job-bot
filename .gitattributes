@@ -1,0 +1,18 @@
+# Normalise line endings — CRLF would break the Docker entrypoint.
+* text=auto eol=lf
+
+*.sh text eol=lf
+*.go text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+
+# Binary assets
+*.pdf binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.db binary
+
+# Generated files: hide from diffs and language stats
+package-lock.json linguist-generated=true -diff
+go.sum linguist-generated=true -diff

@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Build
+        run: go build ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Test
+        run: go test -race ./...
+      - name: Secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  frontend:
+    name: Frontend (Next.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+
+  hygiene:
+    name: Repo hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Personal files must not be committed
+        run: |
+          set -eu
+          forbidden="$(git ls-files | grep -Ei '\.pdf$|\.db$|^\.env$|Zone\.Identifier|^\.(kilo|cursor|specify)/' || true)"
+          if [ -n "$forbidden" ]; then
+            echo "::error::These files must never be committed:"
+            echo "$forbidden"
+            exit 1
+          fi
+          echo "OK: no resumes, databases, secrets or agent state tracked."
+      - name: Documented endpoints must exist in the router
+        run: |
+          set -eu
+          # Every /api path in the README must be a real route in router.go.
+          # Routes are registered relative to r.Route("/api", ...), so compare
+          # each documented path without its /api prefix.
+          documented="$(grep -oE '/api/[a-z0-9/{}_-]+' README.md | sort -u)"
+          missing=""
+          for route in $documented; do
+            rel="${route#/api}"
+            if ! grep -qF "\"$rel\"" backend/internal/api/router.go; then
+              missing="$missing $route"
+            fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::README documents routes that are not registered:$missing"
+            exit 1
+          fi
+          echo "OK: every documented endpoint is registered."

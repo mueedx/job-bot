@@ -1,0 +1,4 @@
+# Extend gitleaks' built-in rules. Add project-specific allowlists below —
+# for example test fixtures that intentionally contain fake credentials.
+[extend]
+useDefault = true

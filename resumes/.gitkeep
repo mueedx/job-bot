@@ -1,0 +1,2 @@
+# Keep this directory so Docker COPY resumes succeeds before PDFs are added.
+# Place fullstack.pdf, blockchain.pdf, and fde.pdf here.

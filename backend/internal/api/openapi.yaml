@@ -1,0 +1,617 @@
+openapi: 3.0.3
+info:
+  title: Job Agent API
+  description: Autonomous Job Finder, Matcher & Application Engine (Phases 1–4 + ingest/drafter)
+  version: 0.3.0
+servers:
+  - url: http://localhost:8000
+    description: Local development
+paths:
+  /api/jobs/{id}/detail:
+    get:
+      tags: [dashboard]
+      summary: Job, its matches, its application, and its logged events
+      operationId: getJobDetail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job detail bundle
+        "404":
+          description: Job not found
+  /api/jobs/{id}/application:
+    put:
+      tags: [dashboard]
+      summary: Create or update the application for a job
+      description: >-
+        The cover letter is saved verbatim. When `track` is given, the stored
+        resume path is resolved from `resumes/` at request time.
+      operationId: upsertApplication
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationUpsert"
+      responses:
+        "200":
+          description: Stored application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+        "400":
+          description: Invalid body, or no usable resume for the requested track
+        "404":
+          description: Job not found
+  /api/jobs/{id}/discard:
+    post:
+      tags: [dashboard]
+      summary: Mark a job as rejected
+      operationId: discardJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Job not found
+  /api/jobs/{id}/approve:
+    post:
+      tags: [dashboard]
+      summary: Mark a job as approved for review
+      description: >-
+        Intentionally returns 501: there is no submission engine yet, so the
+        application is never sent. This endpoint exists so the UI stays honest.
+      operationId: approveJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "501":
+          description: Application was NOT sent; job is marked approved only
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                  job:
+                    $ref: "#/components/schemas/Job"
+        "404":
+          description: Job not found
+  /api/dev/seed:
+    post:
+      tags: [dev]
+      summary: Insert a handful of demo jobs (handy for a fresh database)
+      operationId: seedDemo
+      responses:
+        "200":
+          description: Number of rows created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created:
+                    type: integer
+                  detail:
+                    type: string
+  /api/resumes:
+    get:
+      tags: [resumes]
+      summary: Which resume PDF each track resolves to
+      description: >-
+        Reports the directory in use, the files found, the file chosen for every
+        track, any tracks still missing, and the fallback rule that filled them.
+      operationId: listResumes
+      responses:
+        "200":
+          description: Resume resolution report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dir:
+                    type: string
+                    example: /app/resumes
+                  files:
+                    type: array
+                    items:
+                      type: string
+                    example: ["resumes/Jane_Doe_Fullstack.pdf"]
+                  tracks:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    description: Track name to resolved PDF path
+                  missing:
+                    type: array
+                    items:
+                      type: string
+                    description: Tracks with no usable PDF yet
+                  fallback:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    description: Track to placeholder path that will be used if the PDF is missing
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ResumeEntry"
+
+  /api/ingest/run:
+    post:
+      tags: [ingest]
+      summary: Start public-board ingest + match (+ draft if configured) asynchronously
+      operationId: runIngest
+      responses:
+        "202":
+          description: Search accepted; poll GET /api/ingest/status for progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestStatus"
+        "409":
+          description: A search is already running
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                    example: A search is already running.
+                  status:
+                    $ref: "#/components/schemas/IngestStatus"
+        "503":
+          description: Ingestor not configured
+  /api/ingest/status:
+    get:
+      tags: [ingest]
+      summary: Live or last ingest run status (phase, progress, logs)
+      operationId: ingestStatus
+      responses:
+        "200":
+          description: Status payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestStatus"
+        "503":
+          description: Ingestor not configured
+  /api/jobs/{id}/draft:
+    post:
+      tags: [draft]
+      summary: Generate cover letter via OpenAI project bank
+      operationId: draftJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job detail with application
+        "503":
+          description: OPENAI_API_KEY missing
+  /:
+    get:
+      tags: [system]
+      summary: Service index
+      operationId: getRoot
+      responses:
+        "200":
+          description: Name, version, and links to /docs and /openapi.yaml
+  /docs:
+    get:
+      tags: [system]
+      summary: Human-readable API documentation
+      operationId: getDocs
+      responses:
+        "200":
+          description: HTML documentation page
+  /openapi.yaml:
+    get:
+      tags: [system]
+      summary: This OpenAPI document
+      operationId: getOpenAPI
+      responses:
+        "200":
+          description: The raw OpenAPI spec
+          content:
+            application/yaml:
+              schema:
+                type: string
+  /health:
+    get:
+      tags: [system]
+      summary: Health check
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /api/jobs:
+    get:
+      tags: [jobs]
+      summary: List jobs
+      operationId: listJobs
+      description: |
+        When `JOB_MAX_AGE_DAYS` is set, enriched listings (`enrich=1`) hide postings
+        older than that window. Postings with an unknown date are always returned.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            example: discovered
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 500
+      responses:
+        "200":
+          description: Job list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+    post:
+      tags: [jobs]
+      summary: Create a job
+      operationId: createJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "400":
+          $ref: "#/components/responses/Error"
+        "409":
+          description: Duplicate URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/jobs/{id}:
+    get:
+      tags: [jobs]
+      summary: Get job by ID
+      operationId: getJob
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [jobs]
+      summary: Update job fields
+      operationId: updateJob
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobPatch"
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/apply/{id}:
+    post:
+      tags: [apply]
+      summary: Submit application (Phase 5 stub)
+      operationId: applyToJob
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "501":
+          description: Not implemented yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/stats:
+    get:
+      tags: [stats]
+      summary: Pipeline analytics
+      operationId: getStats
+      responses:
+        "200":
+          description: Counts by status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+components:
+  parameters:
+    JobId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+    Application:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        job_id:
+          type: integer
+          format: int64
+        cover_letter:
+          type: string
+          nullable: true
+        resume_path:
+          type: string
+          nullable: true
+          example: resumes/Jane_Doe_Fullstack.pdf
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    ApplicationUpsert:
+      type: object
+      properties:
+        cover_letter:
+          type: string
+          description: Saved verbatim; never invented by the API.
+        track:
+          type: string
+          enum: [fullstack, blockchain, fde]
+          description: Optional. Resolves to a concrete resume_path in `resumes/`.
+    ResumeEntry:
+      type: object
+      properties:
+        track:
+          type: string
+        path:
+          type: string
+        exists:
+          type: boolean
+          description: False when this is still a placeholder.
+    Job:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        source:
+          type: string
+        source_id:
+          type: string
+        url:
+          type: string
+          format: uri
+        title:
+          type: string
+        company:
+          type: string
+        location:
+          type: string
+          nullable: true
+        is_remote:
+          type: boolean
+        is_relocation:
+          type: boolean
+        salary_min:
+          type: integer
+          nullable: true
+        salary_max:
+          type: integer
+          nullable: true
+        description:
+          type: string
+        posted_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the source says the posting went live; null when unknown.
+        status:
+          type: string
+          example: discovered
+        created_at:
+          type: string
+          format: date-time
+    JobCreate:
+      type: object
+      required: [source, source_id, url, title, company, description]
+      properties:
+        source:
+          type: string
+        source_id:
+          type: string
+        url:
+          type: string
+        title:
+          type: string
+        company:
+          type: string
+        location:
+          type: string
+        is_remote:
+          type: boolean
+          default: true
+        is_relocation:
+          type: boolean
+          default: false
+        salary_min:
+          type: integer
+        salary_max:
+          type: integer
+        description:
+          type: string
+        status:
+          type: string
+          default: discovered
+    JobPatch:
+      type: object
+      properties:
+        status:
+          type: string
+        location:
+          type: string
+        is_remote:
+          type: boolean
+        is_relocation:
+          type: boolean
+        salary_min:
+          type: integer
+        salary_max:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+    Stats:
+      type: object
+      properties:
+        total_jobs:
+          type: integer
+        total_applications:
+          type: integer
+        applied:
+          type: integer
+        interviews:
+          type: integer
+        by_status:
+          type: object
+          additionalProperties:
+            type: integer
+    IngestLogLine:
+      type: object
+      properties:
+        ts:
+          type: string
+          format: date-time
+        level:
+          type: string
+          enum: [info, warn, error]
+        message:
+          type: string
+    IngestStatus:
+      type: object
+      properties:
+        running:
+          type: boolean
+        ok:
+          type: boolean
+          description: false on fatal failure; true when completed even with per-source warnings
+        phase:
+          type: string
+          description: idle | loading_targets | fetching | matching | drafting | done | error
+        current_source:
+          type: string
+        sources_total:
+          type: integer
+        sources_done:
+          type: integer
+        last_started:
+          type: string
+          format: date-time
+          nullable: true
+        last_finished:
+          type: string
+          format: date-time
+          nullable: true
+        inserted:
+          type: integer
+        scored:
+          type: integer
+        drafted:
+          type: integer
+        skipped_old:
+          type: integer
+          description: Postings skipped because they were older than JOB_MAX_AGE_DAYS.
+        source_errors:
+          type: object
+          additionalProperties:
+            type: string
+        message:
+          type: string
+        logs:
+          type: array
+          items:
+            $ref: "#/components/schemas/IngestLogLine"

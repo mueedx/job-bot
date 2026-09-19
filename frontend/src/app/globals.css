@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #0f172a;
+  --muted: #64748b;
+  --panel: #ffffff;
+  --wash: #eef2f6;
+  --line: #d8e0ea;
+  --accent: #0f766e;
+  --accent-soft: #ccfbf1;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background-color: var(--wash);
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(15, 23, 42, 0.06) 1px, transparent 0);
+  background-size: 22px 22px;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+}
+
+code,
+.mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-up {
+  animation: fade-up 0.35s ease-out both;
+}

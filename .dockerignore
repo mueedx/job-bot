@@ -1,0 +1,32 @@
+.git
+.gitignore
+
+# Never ship secrets or personal files
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pdf
+**/*.db
+**/*.db-*
+
+# Local data and config: only the *.example templates are baked in
+data/*
+!data/*.example
+
+# Agent / editor state
+.kilo
+.kilocode
+.cursor
+.specify
+specs
+
+# Build artefacts and dependencies
+**/node_modules
+**/.next
+**/out
+**/dist
+**/bin
+**/*.tsbuildinfo
+**/__pycache__
+**/.venv
+.DS_Store

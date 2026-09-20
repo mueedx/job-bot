@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Lock } from "lucide-react";
-import { formatPostAge, paywallNotice, type Job } from "@/lib/api";
+import { formatPostAge, type Job } from "@/lib/api";
+import { sourceNote } from "@/lib/sourceNotes";
 
 export function JobCard({ job }: { job: Job }) {
   const score =
     job.score != null ? `${Math.round(job.score * 100)}%` : null;
   const age = formatPostAge(job.posted_at);
-  const paywall = paywallNotice(job.source);
+  const note = sourceNote(job.source);
   const [dragging, setDragging] = useState(false);
 
   return (
@@ -56,13 +57,13 @@ export function JobCard({ job }: { job: Job }) {
             {age}
           </span>
         ) : null}
-        {paywall ? (
+        {note ? (
           <span
-            title={paywall}
+            title={note.text}
             className="mono inline-flex cursor-help items-center gap-1 rounded-sm border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300"
           >
             <Lock className="h-3 w-3" aria-hidden="true" />
-            premium
+            {note.label}
           </span>
         ) : null}
       </div>

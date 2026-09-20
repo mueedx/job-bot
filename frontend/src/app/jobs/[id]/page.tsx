@@ -9,10 +9,10 @@ import { CoverLetterEditor } from "@/components/CoverLetterEditor";
 import {
   api,
   parseSkills,
-  paywallNotice,
   trackFromResumePath,
   type JobDetail,
 } from "@/lib/api";
+import { sourceNote } from "@/lib/sourceNotes";
 
 const TRACKS = ["fullstack", "blockchain", "fde"] as const;
 
@@ -118,6 +118,7 @@ export default function JobDetailPage() {
   const { job, match, application } = detail;
   const matched = parseSkills(match?.matched_skills);
   const missing = parseSkills(match?.missing_skills);
+  const note = sourceNote(job.source);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -153,13 +154,13 @@ export default function JobDetailPage() {
           ) : (
             <span className="text-[var(--muted)]">No source link</span>
           )}
-          {paywallNotice(job.source) ? (
+          {note ? (
             <span
-              title={paywallNotice(job.source) ?? undefined}
+              title={note.text}
               className="mono inline-flex cursor-help items-center gap-1 rounded-sm border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300"
             >
               <Lock className="h-3 w-3" aria-hidden="true" />
-              premium apply
+              {note.label}
             </span>
           ) : null}
         </div>

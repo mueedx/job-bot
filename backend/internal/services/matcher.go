@@ -41,12 +41,12 @@ var protocolHeavy = []string{
 
 // MatchResult is the output of scoring a job.
 type MatchResult struct {
-	Score          float64
-	Track          string
-	MatchedSkills  []string
-	MissingSkills  []string
-	ScoreReasons   string
-	StatusAfter    string // scored | queued
+	Score         float64
+	Track         string
+	MatchedSkills []string
+	MissingSkills []string
+	ScoreReasons  string
+	StatusAfter   string // scored | queued
 }
 
 // MatchJob scores a job and picks a resume track.

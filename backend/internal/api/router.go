@@ -51,6 +51,12 @@ func NewRouter(s *Server) http.Handler {
 
 		r.Get("/stats", s.handleStats)
 		r.Get("/resumes", s.handleListResumes)
+
+		r.Get("/sources", s.handleListSources)
+		r.Get("/sources/health", s.handleSourcesHealth)
+
+		r.Get("/settings", s.handleGetSettings)
+		r.Put("/settings", s.handleSaveSettings)
 	})
 
 	return r

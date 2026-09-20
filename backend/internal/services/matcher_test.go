@@ -36,9 +36,9 @@ func TestMatchJob_Blockchain(t *testing.T) {
 
 func TestMatchJob_FDETieBreak(t *testing.T) {
 	job := &models.Job{
-		Title: "Forward Deployed Engineer — AI/Web3",
+		Title:       "Forward Deployed Engineer — AI/Web3",
 		Description: "Customer-facing solutions architect role using MCP, agents, LLM and Bittensor subnet tooling.",
-		IsRemote: true,
+		IsRemote:    true,
 	}
 	r := services.MatchJob(job)
 	if r.Track != "fde" {

@@ -253,14 +253,14 @@ message *“application was NOT sent”*. Finish that application yourself.
 ### Job sources & paywalls
 
 Each job shows where it came from. Some boards gate applying behind a
-subscription — jobs from those sources carry an amber **premium** badge on the
+subscription — jobs from those sources carry an amber **paywall** badge on the
 board and the job page, so you know before you click through:
 
 | Source | Applying | Badge |
 |---|---|---|
 | Greenhouse / Lever / Ashby | Company's own ATS form, free | — |
-| RemoteOK | May require **RemoteOK Premium** or a login | amber `premium` |
-| CryptoJobs | Mirrors RemoteOK listings; same premium gate | amber `premium` |
+| RemoteOK | May require **RemoteOK Premium** or a login | amber `paywall` |
+| Crypto / Web3 | Mirrors RemoteOK listings; same gate | amber `paywall` |
 
 ## API
 
@@ -282,6 +282,8 @@ http://localhost:8000/openapi.yaml).
 | `POST` | `/api/ingest/run` | Start a search; `202` accepted, `409` if one is running |
 | `GET` | `/api/ingest/status` | Phase, progress, counters, and log lines |
 | `GET` | `/api/resumes` | Which PDF each track resolves to, and what is missing |
+| `GET` | `/api/sources` | Known sources: label, kind, supported countries, required keys, notes, ready/enabled |
+| `GET` | `/api/sources/health` | Probe every source live — postings found, errors, or why it was skipped |
 | `GET` | `/api/stats` | Counts by status |
 | `POST` | `/api/dev/seed` | Insert demo jobs for exploring the UI |
 | `POST` | `/api/apply/{id}` | Submission stub — always `501` |

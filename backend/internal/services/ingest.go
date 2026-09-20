@@ -172,12 +172,19 @@ func (ing *Ingestor) execute(ctx context.Context) IngestStatus {
 		client = &http.Client{Timeout: 30 * time.Second}
 	}
 
-	list := []scrapers.Scraper{
-		&scrapers.Greenhouse{Client: client, Slugs: targets.Greenhouse},
-		&scrapers.Lever{Client: client, Slugs: targets.Lever},
-		&scrapers.Ashby{Client: client, Slugs: targets.Ashby},
-		&scrapers.RemoteOK{Client: client},
-		&scrapers.CryptoJobs{Client: client},
+	// Sources come from the registry, gated by the user's settings (source
+	// toggles and target regions) so adding a source never means editing this
+	// loop and a switched-off region really is not fetched.
+	settings, err := LoadSettings(ing.DataDir)
+	if err != nil {
+		ing.logLine("warn", "Could not read settings.yaml — running with defaults ("+err.Error()+").")
+		settings = DefaultSettings()
+	}
+
+	deps := scrapers.Deps{Client: client, Targets: targets, Countries: settings.RecruiterCountries}
+	list, skipped := scrapers.BuildScoped(deps, settings.Sources, settings.RecruiterCountries)
+	for _, skip := range skipped {
+		ing.logLine("info", skip.Label+" skipped: "+skip.Reason)
 	}
 
 	ing.setStatus(func(s *IngestStatus) {
@@ -354,22 +361,9 @@ func (ing *Ingestor) execute(ctx context.Context) IngestStatus {
 	return ing.Status()
 }
 
-func displaySource(name string) string {
-	switch name {
-	case "greenhouse":
-		return "Greenhouse"
-	case "lever":
-		return "Lever"
-	case "ashby":
-		return "Ashby"
-	case "remoteok":
-		return "RemoteOK"
-	case "cryptojobs":
-		return "Crypto / Web3"
-	default:
-		return name
-	}
-}
+// displaySource is the human label for a source, taken from the source registry
+// so the backend and the dashboard can never drift apart.
+func displaySource(name string) string { return scrapers.Label(name) }
 
 func friendlySourceError(source string, err error) string {
 	msg := err.Error()

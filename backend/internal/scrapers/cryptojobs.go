@@ -14,7 +14,9 @@ type CryptoJobs struct {
 	Client *http.Client
 }
 
-func (c *CryptoJobs) Name() string { return "cryptojobs" }
+// Name is "web3" — not "cryptojobs" — because that is the value this scraper has
+// always written into jobs.source, and the dashboard keys paywall notes off it.
+func (c *CryptoJobs) Name() string { return "web3" }
 
 func (c *CryptoJobs) Fetch(ctx context.Context) ([]RawJob, error) {
 	var rows []map[string]any

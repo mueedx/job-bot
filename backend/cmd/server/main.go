@@ -22,10 +22,10 @@ func main() {
 	_ = godotenv.Load(filepath.Join("..", ".env"))
 	_ = godotenv.Load(".env")
 
-	dataDir := os.Getenv("DATA_DIR")
-	if dataDir == "" {
-		dataDir = resolveDataDir()
-	}
+	// resolveDataDir consults DATA_DIR itself, so a relative setting that does
+	// not exist cannot silently split the database in two.
+	dataDir := resolveDataDir()
+	log.Printf("Data: reading %s (sqlite + editable YAML)", dataDir)
 
 	sqlDB, err := db.Open(dataDir)
 	if err != nil {
@@ -51,7 +51,7 @@ func main() {
 		ingestor.Notifier = bot.NotifyHighMatch
 	}
 
-	server := &api.Server{Store: store, Ingestor: ingestor, Drafter: drafter}
+	server := &api.Server{Store: store, Ingestor: ingestor, Drafter: drafter, DataDir: dataDir}
 	router := api.NewRouter(server)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -80,17 +80,51 @@ func main() {
 	}
 }
 
-// resolveDataDir prefers ./data and falls back to ../data, so the server finds
-// the same directory whether it is started from the repo root or from backend/.
+// resolveDataDir decides where the SQLite database and the editable YAML live.
+//
+// DATA_DIR wins when it is usable. A *relative* DATA_DIR that does not exist is
+// a trap: starting the server from backend/ with DATA_DIR=./data used to create a
+// second, empty database in backend/data, so the ingestor wrote to one database
+// while the dashboard read another — and the board sources silently lost their
+// target_companies.yaml. A missing relative path therefore falls back to
+// detection, while absolute paths are honoured as given (Docker sets /data).
 func resolveDataDir() string {
+	if configured := strings.TrimSpace(os.Getenv("DATA_DIR")); configured != "" {
+		if isDir(configured) || filepath.IsAbs(configured) {
+			return configured
+		}
+		log.Printf("DATA_DIR=%q is not a directory; using the detected data directory instead", configured)
+	}
+	// Prefer the repository root's data/ so running from the repo root and from
+	// backend/ share one database instead of quietly creating two.
+	if root, ok := repoRoot(); ok {
+		if dir := filepath.Join(root, "data"); isDir(dir) {
+			return dir
+		}
+	}
 	if isDir("data") {
 		return "data"
 	}
-	parent := filepath.Join("..", "data")
-	if isDir(parent) {
-		return parent
+	return filepath.Join("..", "data")
+}
+
+// repoRoot walks up from the working directory looking for the repository root,
+// which is the directory holding the Makefile.
+func repoRoot() (string, bool) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", false
 	}
-	return "data"
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "Makefile")); err == nil {
+			return dir, true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", false
+		}
+		dir = parent
+	}
 }
 
 func isDir(path string) bool {

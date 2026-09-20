@@ -1,51 +1,33 @@
 # Curated company board slugs for Greenhouse / Lever / Ashby ingestion (Phase 2).
+#
+# Every slug below was probed against the public board API and returned live
+# postings. Slugs that 404 or return nothing are pruned rather than left in:
+# a dead slug still "runs" during a search and reports success, so the failure
+# is invisible without checking. Re-check yours with:
+#
+#   make sources-check
 
 greenhouse:
-  - langchain
-  - replicate
-  - together-ai
-  - anysphere
-  - polygon
-  - chainlink
-  - anthropic
-  - huggingface
   - stripe
-  - vercel
-  - cloudflare
-  - discord
-  - figment
-  - alchemy
-  - opensea
-  - coinbase
-  - rippling
   - databricks
-  - snowflake
+  - anthropic
+  - cloudflare
+  - coinbase
   - airbnb
+  - vercel
+  - discord
 
 lever:
-  - openai
-  - notion
-  - figma
-  - ramp
-  - linear
-  - netflix
   - spotify
-  - shopify
-  - twilio
-  - palantir
 
 ashby:
   - cursor
   - perplexity
-  - rethink
-  - breeze
-  - vercel
-  - runway
   - elevenlabs
-  - hectoraai
-  - wandb
-  - chromium
+  - runway
 
 notes: >
-  Expand this list over time. Scrapers iterate these slugs against
-  public board APIs (Greenhouse boards-api, Lever postings, Ashby job board).
+  Expand this list over time, then confirm the additions with `make sources-check`.
+  Scrapers iterate these slugs against public board APIs (Greenhouse boards-api,
+  Lever postings, Ashby job board).
+

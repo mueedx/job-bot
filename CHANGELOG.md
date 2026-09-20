@@ -11,20 +11,40 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Pipeline board is now interactive: drag job cards between columns to change
   their status (optimistic UI with revert + error banner on failure), via the
   existing `PATCH /api/jobs/{id}`.
-- Paywall indicator on source links: jobs from RemoteOK and CryptoJobs carry an
-  amber "premium" badge on the board and the job page, warning that applying
-  may require a RemoteOK Premium subscription or login. Free ATS sources
-  (Greenhouse, Lever, Ashby) are unbadged.
+- Paywall indicator on source links: jobs from RemoteOK and the Crypto / Web3
+  mirror carry an amber "paywall" badge on the board and the job page, warning
+  that applying may require a RemoteOK Premium subscription or login. Free ATS
+  sources (Greenhouse, Lever, Ashby) are unbadged.
 - `engines` field in `frontend/package.json` (Node ≥ 22) and a Dependabot
   config for Go, npm, Docker and GitHub Actions updates.
 
 ### Changed
 
+- Sources are now registered in one place (`scrapers.Registry`) with metadata
+  used by the ingest loop, the API and the dashboard, so labels and per-source
+  behaviour can no longer drift between backend and frontend.
 - The cover-letter prompt addresses the candidate by the name in
   `data/project_bank.yaml` instead of a hardcoded name, falling back to a
   neutral phrasing when it is missing.
 - Docs and tests use neutral placeholder names (`Jane_Doe_*.pdf`) instead of
   personal ones.
+- The paywall badge on RemoteOK/Crypto / Web3 jobs reads "paywall" instead of
+  "premium".
+- Dead company board slugs were pruned from `target_companies.yaml.example`
+  after probing every configured slug — 21 of 30 pointed at boards that no
+  longer exist and silently returned nothing.
+
+### Fixed
+
+- Running the server from `backend/` with `DATA_DIR=./data` created a second,
+  empty database in `backend/data/`: the ingestor wrote there while the
+  dashboard read the real one, and "Load demo data" and searches appeared to do
+  nothing. A relative `DATA_DIR` that does not exist now falls back to the
+  detected data directory, the resolved directory is logged at startup, and the
+  source health check says plainly when `target_companies.yaml` cannot be read.
+- Crypto / Web3 jobs were badged against a `cryptojobs` source name that no
+  scraper writes; the registry now uses the `web3` value that exists in the
+  database, so paywall notes apply to those jobs again.
 
 ### Fixed
 

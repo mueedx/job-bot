@@ -411,6 +411,53 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/recruiters:
+    get:
+      tags: [recruiters]
+      summary: Recruitment agencies directory
+      description: >
+        Returns the curated recruitment agency directory filtered to the user's
+        enabled countries, with optional track and country filters. Merges the
+        shipped catalog with data/recruiters.yaml (user overrides/disables/adds).
+      parameters:
+        - name: track
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated track tokens, e.g. fullstack,blockchain
+        - name: countries
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated country codes, e.g. ie,gb,pk. Defaults to enabled regions from settings.
+      responses:
+        "200":
+          description: Recruiter directory
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recruiters:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Recruiter"
+                  grouped_by_country:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/Recruiter"
+                  shipped_count:
+                    type: integer
+                  countries_filtered_to:
+                    type: array
+                    items:
+                      type: string
+        "500":
+          $ref: "#/components/responses/Error"
   /api/settings:
     get:
       tags: [sources]

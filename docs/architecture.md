@@ -2,7 +2,7 @@
 
 This is the backend for the self-hosted job search pipeline: discovery, scoring, drafting, and tracking. It is written in Go and exposes a documented HTTP API that the Next.js dashboard and any future client consume.
 
-Treat this document as the **current** description of the codebase. The older spec in `job-agent-spec.md` is planning context — it explains the *why* behind several decisions, but it is not a live description of what is built.
+Treat this document as the **current** description of the codebase. The older spec in `job-agent-spec.md` is planning context -- it explains the *why* behind several decisions, but it is not a live description of what is built.
 
 ---
 
@@ -10,10 +10,10 @@ Treat this document as the **current** description of the codebase. The older sp
 
 The backend has four jobs:
 
-1. **Discover** — run scrapers against public job boards and curated company pages.
-2. **Score** — evaluate each posting against compensation, remote/relocation criteria, and the candidate's track, producing a match result and a recommended pipeline status.
-3. **Draft** — optionally generate cover letters and ATS answers from the editable project bank.
-4. **Track** — expose the pipeline over HTTP so the dashboard and bot can read and mutate state (move jobs between columns, review drafts, trigger applies).
+1. **Discover** -- run scrapers against public job boards and curated company pages.
+2. **Score** -- evaluate each posting against compensation, remote/relocation criteria, and the candidate's track, producing a match result and a recommended pipeline status.
+3. **Draft** -- optionally generate cover letters and ATS answers from the editable project bank.
+4. **Track** -- expose the pipeline over HTTP so the dashboard and bot can read and mutate state (move jobs between columns, review drafts, trigger applies).
 
 Everything is local-first. There is no cloud dependency, no account, and no telemetry. The only external calls are the job sources you enable and, optionally, an LLM endpoint for drafting and resume analysis.
 
@@ -23,25 +23,25 @@ Everything is local-first. There is no cloud dependency, no account, and no tele
 
 ```
 job-bot/
-├── backend/
-│   ├── cmd/server/main.go      # entrypoint: load config, open DB, build router, serve
-│   ├── internal/
-│   │   ├── api/                # HTTP handlers + OpenAPI spec
-│   │   ├── db/                 # SQLite, migrations, queries
-│   │   ├── models/             # shared structs (Job, Match, settings shapes)
-│   │   ├── scrapers/           # one package per job source + registry
-│   │   ├── services/           # ingest pipeline, settings, resume analysis, drafting
-│   │   └── textutil/           # small helpers: HTML->text, trimming
-│   ├── go.mod / go.sum
-│   ├── Dockerfile
-│   └── .env.example
-├── frontend/                   # Next.js 15 dashboard
-├── docs/
-│   ├── architecture.md         # this file
-│   └── job-agent-spec.md       # planning context (not a live description)
-├── data/                       # runtime data: DB, editable YAML — gitignored
-├── resumes/                    # candidate PDFs — gitignored
-└── README.md
+|-- backend/
+|   |-- cmd/server/main.go      # entrypoint: load config, open DB, build router, serve
+|   |-- internal/
+|   |   |-- api/                # HTTP handlers + OpenAPI spec
+|   |   |-- db/                 # SQLite, migrations, queries
+|   |   |-- models/             # shared structs (Job, Match, settings shapes)
+|   |   |-- scrapers/           # one package per job source + registry
+|   |   |-- services/           # ingest pipeline, settings, resume analysis, drafting
+|   |   `---- textutil/           # small helpers: HTML->text, trimming
+|   |-- go.mod / go.sum
+|   |-- Dockerfile
+|   `---- .env.example
+|-- frontend/                   # Next.js 15 dashboard
+|-- docs/
+|   |-- architecture.md         # this file
+|   `---- job-agent-spec.md       # planning context (not a live description)
+|-- data/                       # runtime data: DB, editable YAML -- gitignored
+|-- resumes/                    # candidate PDFs -- gitignored
+`---- README.md
 ```
 
 A few conventions worth calling out:
@@ -55,20 +55,20 @@ A few conventions worth calling out:
 
 ## 3. API and docs
 
-The API is a flat set of `GET/POST/PATCH` handlers under `internal/api`. There is no framework magic — just `net/http` + a small router. OpenAPI is **hand-written** in `backend/internal/api/openapi.yaml` and served from `/openapi.yaml`. The dashboard and any client can load Swagger UI from `/docs` while the server runs.
+The API is a flat set of `GET/POST/PATCH` handlers under `internal/api`. There is no framework magic -- just `net/http` + a small router. OpenAPI is **hand-written** in `backend/internal/api/openapi.yaml` and served from `/openapi.yaml`. The dashboard and any client can load Swagger UI from `/docs` while the server runs.
 
 This is deliberately low-tech. Go's `net/http` does not auto-generate specs the way FastAPI does, and for a project this size a small YAML file next to the handlers is clearer than a comment-driven generator. If the API surface grows a lot, that tradeoff can be revisited.
 
 Endpoints that matter day-to-day:
 
-- `/api/jobs` — list and search postings, with filters for track, status, score.
-- `/api/jobs/:id` — read one posting; `PATCH` updates its status (drag-and-drop on the board calls this).
-- `/api/settings` — read and write source toggles and target regions.
-- `/api/sources` — metadata for every known source: label, kind, supported countries, whether it needs an API key, and whether it is opt-in.
-- `/api/sources/health` — probe each source and report what actually came back, so dead company pages and blocked sites become visible.
-- `/api/stats` — pipeline counts.
-- `/api/resumes` — resume directory and per-track resolution.
-- `/api/resumes/analyze` — trigger AI resume analysis for a file or the whole directory.
+- `/api/jobs` -- list and search postings, with filters for track, status, score.
+- `/api/jobs/:id` -- read one posting; `PATCH` updates its status (drag-and-drop on the board calls this).
+- `/api/settings` -- read and write source toggles and target regions.
+- `/api/sources` -- metadata for every known source: label, kind, supported countries, whether it needs an API key, and whether it is opt-in.
+- `/api/sources/health` -- probe each source and report what actually came back, so dead company pages and blocked sites become visible.
+- `/api/stats` -- pipeline counts.
+- `/api/resumes` -- resume directory and per-track resolution.
+- `/api/resumes/analyze` -- trigger AI resume analysis for a file or the whole directory.
 
 ---
 
@@ -76,9 +76,9 @@ Endpoints that matter day-to-day:
 
 The core tables are small:
 
-- **`jobs`** — one row per discovered posting: source, source id, url, title, company, location, remote flag, salary range, description, posted-at, and current pipeline status.
-- **`matches`** — one row per scored job: score, assigned track, matched and missing skills, and the human-readable reasons for the score.
-- **`resume_profiles`** — one row per resume file: content hash, AI-extracted track and keywords when available, otherwise the filename-based fallback. Used by the matcher to prefer the right track and to add AI keyword signal.
+- **`jobs`** -- one row per discovered posting: source, source id, url, title, company, location, remote flag, salary range, description, posted-at, and current pipeline status.
+- **`matches`** -- one row per scored job: score, assigned track, matched and missing skills, and the human-readable reasons for the score.
+- **`resume_profiles`** -- one row per resume file: content hash, AI-extracted track and keywords when available, otherwise the filename-based fallback. Used by the matcher to prefer the right track and to add AI keyword signal.
 
 Status flow is explicit and finite: `discovered`, `scored`, `queued`, `approved`, `applied`, `interview`, `rejected`. The board columns map to subsets of these, and drag-and-drop on the dashboard is just a status update.
 
@@ -92,8 +92,8 @@ Adding a source is one registry entry plus one scraper file implementing a small
 
 Settings live in `data/settings.yaml` and have two parts:
 
-- **Source toggles** — which scrapers run.
-- **Target regions** — lowercase ISO-3166 alpha-2 country codes. These scope country-aware sources and the recruiter directory. The default list is `ie`, `gb`, `pk`, `ae`, `sa`, `au`, `nz`, plus `us` and `ca`.
+- **Source toggles** -- which scrapers run.
+- **Target regions** -- lowercase ISO-3166 alpha-2 country codes. These scope country-aware sources and the recruiter directory. The default list is `ie`, `gb`, `pk`, `ae`, `sa`, `au`, `nz`, plus `us` and `ca`.
 
 Source-specific notes are honored, not hidden:
 
@@ -101,7 +101,7 @@ Source-specific notes are honored, not hidden:
 - **Jobicy** requires crediting with a link to `jobicy.com`.
 - **Himalayas** and **Arbeitnow** are free and have no special obligation.
 - **Remotive** is free in principle but its own guidance is to stay around 4 requests/day, so it is rate-budgeted, not run on every ingest.
-- **Bayt**, **SEEK AU**, and **SEEK NZ** are **gated opt-ins**: the sites restrict automated access, so they stay off unless you explicitly enable them with an environment flag, and even then they may be blocked. SEEK in particular only permits `?keywords` search URLs under its robots.txt — the internal `/api/jobsearch` and `/graphql` endpoints are explicitly disallowed, so we do not call them.
+- **Bayt**, **SEEK AU**, and **SEEK NZ** are **gated opt-ins**: the sites restrict automated access, so they stay off unless you explicitly enable them with an environment flag, and even then they may be blocked. SEEK in particular only permits `?keywords` search URLs under its robots.txt -- the internal `/api/jobsearch` and `/graphql` endpoints are explicitly disallowed, so we do not call them.
 
 ---
 
@@ -109,8 +109,8 @@ Source-specific notes are honored, not hidden:
 
 Matching is built in two layers:
 
-1. **Heuristics** — compensation, remote/relocation, track signals from title and description, and a small set of track-specific keywords. This is the baseline and works without any LLM.
-2. **AI supplement** — when `OPENAI_API_KEY` is set, resumes are analyzed once per file (cached by content hash) to extract track, skills, keywords, seniority, and a one-line summary. The matcher then adds a bounded keyword-signal boost when those keywords appear in a posting.
+1. **Heuristics** -- compensation, remote/relocation, track signals from title and description, and a small set of track-specific keywords. This is the baseline and works without any LLM.
+2. **AI supplement** -- when `OPENAI_API_KEY` is set, resumes are analyzed once per file (cached by content hash) to extract track, skills, keywords, seniority, and a one-line summary. The matcher then adds a bounded keyword-signal boost when those keywords appear in a posting.
 
 The AI layer is a **supplement**, not a replacement. Without a key, the matcher is exactly as good as the heuristics. With a key, it gets better at preferring the right track and at surfacing relevant skills, but the score reasons always say which signal contributed, so a blank score is informative rather than mysterious.
 
@@ -118,7 +118,7 @@ The AI layer is a **supplement**, not a replacement. Without a key, the matcher 
 
 ## 7. Drafting
 
-Drafting is optional and key-gated. When enabled, the drafter uses the editable project bank (`data/project_bank.yaml`) to ground cover letters and ATS answers in real, editable bullets instead of inventing experience. The bank is the canonical source of truth for what gets written about the candidate — not the LLM, not a hidden profile.
+Drafting is optional and key-gated. When enabled, the drafter uses the editable project bank (`data/project_bank.yaml`) to ground cover letters and ATS answers in real, editable bullets instead of inventing experience. The bank is the canonical source of truth for what gets written about the candidate -- not the LLM, not a hidden profile.
 
 ---
 
@@ -133,10 +133,10 @@ go run ./cmd/server
 
 Useful URLs while it runs:
 
-- `http://localhost:8000/docs` — interactive API docs
-- `http://localhost:8000/openapi.yaml` — raw spec
-- `http://localhost:8000/health` — liveness
-- `http://localhost:8000/api/stats` — pipeline counts
+- `http://localhost:8000/docs` -- interactive API docs
+- `http://localhost:8000/openapi.yaml` -- raw spec
+- `http://localhost:8000/health` -- liveness
+- `http://localhost:8000/api/stats` -- pipeline counts
 
 From another terminal:
 
@@ -157,7 +157,7 @@ A few ideas from the original spec did not make it into the code, and that is in
 - **Autonomous applying** is not built out. The app tracks and drafts; actual submission is a human decision in the dashboard. This keeps the system honest about what it has done.
 - **Telegram bot** is not present in this backend. Notification and command surface is a future extension; the API already exposes everything the bot would need.
 
-These are not missing pieces waiting to be filled in — they are deliberate choices about scope and honesty. The app finds, scores, drafts, and tracks. What you do with a scored, drafted job is up to you.
+These are not missing pieces waiting to be filled in -- they are deliberate choices about scope and honesty. The app finds, scores, drafts, and tracks. What you do with a scored, drafted job is up to you.
 
 ---
 

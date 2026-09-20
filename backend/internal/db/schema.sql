@@ -51,3 +51,17 @@ CREATE TABLE IF NOT EXISTS submission_logs (
     created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(application_id) REFERENCES applications(id) ON DELETE CASCADE
 );
+
+-- AI-extracted resume profiles (services.ResumeAnalyzer). One row per resume
+-- file, keyed by its stored path; content_hash skips re-extraction when the
+-- PDF has not changed, so each resume costs one LLM call per edit.
+CREATE TABLE IF NOT EXISTS resume_profiles (
+    resume_path    TEXT PRIMARY KEY,
+    content_hash   TEXT NOT NULL,
+    track          TEXT NOT NULL,
+    skills         TEXT,
+    keywords       TEXT,
+    seniority      TEXT,
+    summary        TEXT,
+    extracted_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+);

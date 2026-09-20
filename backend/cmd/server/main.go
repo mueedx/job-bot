@@ -33,9 +33,21 @@ func main() {
 	}
 	defer sqlDB.Close()
 
-	store := db.NewStore(sqlDB)
+		store := db.NewStore(sqlDB)
 	drafter := &services.Drafter{Store: store, DataDir: dataDir}
-	ingestor := &services.Ingestor{Store: store, DataDir: dataDir, Drafter: drafter}
+
+	// ResumeAnalyzer: extracts keywords from resume PDFs via OpenAI.
+	// Reuses the same BaseURL / API key / model as the Drafter so there's one
+	// env-driven LLM configuration. Without OPENAI_API_KEY it stays inactive
+	// and matching falls back to built-in keyword heuristics.
+	analyzer := services.NewResumeAnalyzer(store, &services.OpenAIClient{
+		BaseURL: services.LLMBaseURL(),
+		APIKey:  os.Getenv("OPENAI_API_KEY"),
+		Model:   os.Getenv("LLM_MODEL"),
+	})
+	analyzer.Enable()
+
+	ingestor := &services.Ingestor{Store: store, DataDir: dataDir, Analyzer: analyzer, Drafter: drafter}
 
 	// Say out loud where resumes are read from: silent misconfiguration here
 	// otherwise shows up much later as a wrong (or missing) PDF on an application.
@@ -51,7 +63,7 @@ func main() {
 		ingestor.Notifier = bot.NotifyHighMatch
 	}
 
-	server := &api.Server{Store: store, Ingestor: ingestor, Drafter: drafter, DataDir: dataDir}
+		server := &api.Server{Store: store, Ingestor: ingestor, Drafter: drafter, Analyzer: analyzer, DataDir: dataDir}
 	router := api.NewRouter(server)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

@@ -74,3 +74,5 @@ data/*
 !data/.gitkeep
 !data/README.md
 !data/*.example
+# Phase 6 AI resume analysis
+*.pdf.text

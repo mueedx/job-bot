@@ -114,3 +114,16 @@ type ApplicationUpsert struct {
 	CoverLetter *string `json:"cover_letter"`
 	Track       *string `json:"track"`
 }
+
+// ResumeProfile is the AI-extracted description of one resume file. Skills and
+// Keywords are JSON arrays (same convention as matches.matched_skills).
+type ResumeProfile struct {
+	ResumePath  string    `db:"resume_path" json:"resume_path"`
+	ContentHash string    `db:"content_hash" json:"content_hash"`
+	Track       string    `db:"track" json:"track"`
+	Skills      *string   `db:"skills" json:"skills"`
+	Keywords    *string   `db:"keywords" json:"keywords"`
+	Seniority   string    `db:"seniority" json:"seniority"`
+	Summary     string    `db:"summary" json:"summary"`
+	ExtractedAt time.Time `db:"extracted_at" json:"extracted_at"`
+}

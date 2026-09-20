@@ -14,6 +14,7 @@ import (
 
 	"github.com/mueedx/job-bot/backend/internal/db"
 	"github.com/mueedx/job-bot/backend/internal/models"
+	"github.com/mueedx/job-bot/backend/internal/resumes"
 	"github.com/mueedx/job-bot/backend/internal/scrapers"
 	"gopkg.in/yaml.v3"
 )
@@ -51,6 +52,7 @@ type Ingestor struct {
 	Store    *db.Store
 	DataDir  string
 	Client   *http.Client
+	Analyzer *ResumeAnalyzer
 	Drafter  *Drafter
 	Notifier func(job *models.Job, match *models.Match)
 
@@ -181,6 +183,25 @@ func (ing *Ingestor) execute(ctx context.Context) IngestStatus {
 		settings = DefaultSettings()
 	}
 
+	// Build resume profiles (uses AI extraction when OPENAI_API_KEY is set;
+	// falls back to filename/keyword heuristics otherwise). Profiles are
+	// cached per content hash, so typically only changed resumes get re-analyzed.
+	var profiles []ExtractedProfile
+	if ing.Analyzer != nil {
+		entries := resumes.Available()
+		for _, e := range entries {
+			p, perr := ing.Analyzer.AnalyzePDF(ctx, e.Path)
+			if perr != nil {
+				ing.logLine("warn", fmt.Sprintf("analyze resume %s: %v", e.Path, perr))
+				continue
+			}
+			profiles = append(profiles, *p)
+		}
+		if len(profiles) > 0 {
+			ing.logLine("info", fmt.Sprintf("Prepared %d resume profiles (%s).", len(profiles), profiles[0].Source))
+		}
+	}
+
 	deps := scrapers.Deps{Client: client, Targets: targets, Countries: settings.RecruiterCountries}
 	list, skipped := scrapers.BuildScoped(deps, settings.Sources, settings.RecruiterCountries)
 	for _, skip := range skipped {
@@ -284,7 +305,7 @@ func (ing *Ingestor) execute(ctx context.Context) IngestStatus {
 		}
 		inserted++
 
-		result := MatchJob(job)
+		result := MatchJobWithProfiles(job, profiles)
 		ms := SkillsJSON(result.MatchedSkills)
 		miss := SkillsJSON(result.MissingSkills)
 		reasons := result.ScoreReasons

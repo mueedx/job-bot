@@ -12,6 +12,7 @@ type Server struct {
 	Store    *db.Store
 	Ingestor *services.Ingestor
 	Drafter  *services.Drafter
+	Analyzer *services.ResumeAnalyzer
 	// DataDir is where settings.yaml and the rest of the editable state live.
 	DataDir string
 }

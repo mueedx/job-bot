@@ -163,6 +163,46 @@ paths:
                     items:
                       $ref: "#/components/schemas/ResumeEntry"
 
+  /api/resumes/analyze:
+    post:
+      tags: [resumes]
+      summary: Analyze all resume PDFs for AI-extracted keywords
+      description: >-
+        Runs PDF text extraction and (when OPENAI_API_KEY is set) AI keyword
+        extraction on every resume PDF found in the resumes directory. Without an
+        API key this still runs but only records filename-based track inference.
+        Profiles are cached per content hash — only changed PDFs trigger an LLM
+        call. Results are available in GET /api/resumes as the profiles array.
+      operationId: analyzeResumes
+      responses:
+        "200":
+          description: Analysis complete
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analyzed:
+                    type: integer
+                    description: Number of resumes analyzed
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                          description: Resume file path
+                        source:
+                          type: string
+                          description: 'Source: "openai" | "fallback" | "cached"'
+                        track:
+                          type: string
+                        error:
+                          type: string
+        "503":
+          description: Analyzer not configured
+
   /api/ingest/run:
     post:
       tags: [ingest]

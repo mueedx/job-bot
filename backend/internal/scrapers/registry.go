@@ -316,4 +316,22 @@ var Registry = []Spec{
 		Note:  "Mirrors RemoteOK listings — applying may require RemoteOK Premium or a login",
 		Build: func(d Deps) Scraper { return &CryptoJobs{Client: d.Client} },
 	},
+	{
+		Name:  "jobicy",
+		Label: "Jobicy",
+		Kind:  KindAggregator,
+		// Jobicy has no dedicated country filter; the geo slug covers broad regions
+		// (anywhere, apac, emea, latam, and individual countries). Leaving Countries
+		// empty means it runs for every target list and the UI shows its broad reach.
+		Note:  "If you build on this feed, credit Jobicy with a link to jobicy.com",
+		Build: func(d Deps) Scraper { return &Jobicy{Client: d.Client} },
+	},
+	{
+		Name:      "arbeitnow",
+		Label:     "Arbeitnow",
+		Kind:      KindAggregator,
+		Countries: []string{"de"},
+		Note:      "Mostly German/European listings; enable only if your target regions include Germany or nearby",
+		Build:     func(d Deps) Scraper { return &Arbeitnow{Client: d.Client} },
+	},
 }

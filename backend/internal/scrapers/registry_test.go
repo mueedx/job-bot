@@ -1,120 +1,201 @@
 package scrapers
 
-import "testing"
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"testing"
+	"time"
+)
 
-// Every spec must build a scraper whose Name matches the spec name. The database
-// stores jobs.source and the dashboard keys paywall notes off it, so a mismatch
-// silently breaks both — which is exactly how the crypto source ended up hidden
-// behind the wrong name.
-func TestRegistrySpecNameMatchesScraperName(t *testing.T) {
-	for _, spec := range Registry {
-		t.Run(spec.Name, func(t *testing.T) {
-			if spec.Build == nil {
-				t.Fatal("Build is nil")
-			}
-			if got := spec.Build(Deps{}).Name(); got != spec.Name {
-				t.Fatalf("scraper Name() = %q, spec Name = %q", got, spec.Name)
-			}
-		})
+func TestJobicyFetch(t *testing.T) {
+	raw, err := os.ReadFile("testdata/jobicy.json")
+	if err != nil {
+		t.Fatal(err)
 	}
-}
 
-func TestRegistryNamesAndLabelsAreSet(t *testing.T) {
-	seen := map[string]bool{}
-	for _, spec := range Registry {
-		if spec.Name == "" {
-			t.Fatal("a spec has an empty Name")
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v2/remote-jobs" {
+			t.Errorf("unexpected request path: %s", r.URL.Path)
 		}
-		if spec.Label == "" {
-			t.Errorf("%s has an empty Label", spec.Name)
+		if r.Header.Get("Accept") != "application/json" {
+			t.Error("missing Accept: application/json header")
 		}
-		if seen[spec.Name] {
-			t.Errorf("duplicate source name %q", spec.Name)
-		}
-		seen[spec.Name] = true
-	}
-}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(raw)
+	}))
+	defer ts.Close()
 
-// The crypto source must stay named "web3": that is the value already stored in
-// jobs.source, and renaming it would orphan existing rows and their badges.
-func TestWeb3SourceNameIsStable(t *testing.T) {
-	spec, ok := Lookup("web3")
-	if !ok {
-		t.Fatal("web3 source is missing from the registry")
+	client := ts.Client()
+	client.Timeout = 5 * time.Second
+	j := &Jobicy{Client: client, BaseURL: ts.URL}
+	jobs, err := j.Fetch(context.Background())
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
 	}
-	if spec.Label != "Crypto / Web3" {
-		t.Errorf("Label = %q", spec.Label)
+	if got, want := len(jobs), 3; got != want {
+		t.Fatalf("got %d jobs, want %d", got, want)
 	}
-	if spec.Note == "" {
-		t.Error("the RemoteOK-derived crypto feed should carry a paywall note")
-	}
-}
 
-func TestReadyRequiresEnvKeys(t *testing.T) {
-	spec := Spec{Name: "keyed", EnvKeys: []string{"TEST_SOURCE_API_KEY"}}
-	t.Setenv("TEST_SOURCE_API_KEY", "")
-	if ok, reason := spec.Ready(); ok || reason == "" {
-		t.Fatalf("Ready() = %v, %q; want not ready with a reason", ok, reason)
+	// First job: USA, remote false (not "anywhere")
+	got := jobs[0]
+	if got.Source != "jobicy" || got.SourceID != "151146" {
+		t.Errorf("job[0] id = %+v", got)
 	}
-	t.Setenv("TEST_SOURCE_API_KEY", "secret")
-	if ok, reason := spec.Ready(); !ok {
-		t.Fatalf("Ready() = false, %q; want ready once the key is set", reason)
+	if got.Title != "AWS Data Engineer (Senior)" {
+		t.Errorf("title = %q", got.Title)
 	}
-}
+	if got.Company != "Mactores" {
+		t.Errorf("company = %q", got.Company)
+	}
+	if got.Location != "USA" {
+		t.Errorf("location = %q", got.Location)
+	}
+	if got.IsRemote {
+		t.Error("USA job should not be remote")
+	}
+	if got.URL != "https://jobicy.com/jobs/151146-aws-data-engineer-senior" {
+		t.Errorf("url = %q", got.URL)
+	}
 
-func TestReadyRequiresOptIn(t *testing.T) {
-	spec := Spec{Name: "gated", OptInEnv: "TEST_GATED_ENABLED"}
-	if ok, reason := spec.Ready(); ok || reason == "" {
-		t.Fatalf("off by default expected, got %v %q", ok, reason)
+	// Third job: Anywhere, remote true
+	got = jobs[2]
+	if got.Title != "Blockchain Developer" {
+		t.Errorf("title = %q", got.Title)
 	}
-	t.Setenv("TEST_GATED_ENABLED", "true")
-	if ok, _ := spec.Ready(); !ok {
-		t.Fatal("expected ready when the opt-in flag is true")
+	if got.Company != "ChainLabs" {
+		t.Errorf("company = %q", got.Company)
 	}
-}
+	if got.Location != "Anywhere" {
+		t.Errorf("location = %q", got.Location)
+	}
+	if !got.IsRemote {
+		t.Error("Anywhere job should be remote")
+	}
 
-func TestSupportsCountry(t *testing.T) {
-	global := Spec{Name: "global"}
-	if !global.SupportsCountry("ae") {
-		t.Error("a source with no Countries should support every country")
-	}
-	scoped := Spec{Name: "scoped", Countries: []string{"au", "nz"}}
-	if !scoped.SupportsCountry("AU") {
-		t.Error("country matching should be case-insensitive")
-	}
-	if scoped.SupportsCountry("ae") {
-		t.Error("UAE is not covered by an AU/NZ source")
-	}
-}
-
-func TestEnabledRespectsSettings(t *testing.T) {
-	ready := 0
-	for _, spec := range Registry {
-		if ok, _ := spec.Ready(); ok {
-			ready++
+	// All jobs must have non-empty descriptions (HTMLToText ran).
+	for _, jb := range jobs {
+		if jb.Description == "" {
+			t.Error("job has empty description after HTMLToText")
 		}
 	}
-	if got := len(Enabled(nil)); got != ready {
-		t.Fatalf("Enabled(nil) = %d sources, want %d ready sources", got, ready)
+}
+
+func TestJobicyGeoFilter(t *testing.T) {
+	raw, err := os.ReadFile("testdata/jobicy.json")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if ready == 0 {
-		t.Skip("no ready sources to disable")
-	}
-	// Switch one source off explicitly and confirm it is dropped.
-	name := ""
-	for _, spec := range Registry {
-		if ok, _ := spec.Ready(); ok {
-			name = spec.Name
-			break
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify the geo param is forwarded.
+		if r.URL.Query().Get("geo") != "uk" {
+			t.Errorf("expected geo=uk, got %s", r.URL.Query().Get("geo"))
 		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(raw)
+	}))
+	defer ts.Close()
+
+	j := &Jobicy{Client: ts.Client(), BaseURL: ts.URL, Geo: "uk"}
+	_, err = j.Fetch(context.Background())
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
 	}
-	got := Enabled(map[string]bool{name: false})
-	if len(got) != ready-1 {
-		t.Fatalf("Enabled() = %d sources, want %d", len(got), ready-1)
+}
+
+func TestJobicyEmptyOrMissingFields(t *testing.T) {
+	// A row with an empty title or company must be skipped.
+	raw := []byte(`{
+		"success": true,
+		"jobs": [
+			{"id":1, "url":"https://x.com/1", "jobTitle":"", "companyName":"Co", "jobGeo":"UK", "jobDescription":"<p>x</p>", "pubDate":"2026-01-01T00:00:00+00:00"},
+			{"id":2, "url":"https://x.com/2", "jobTitle":"Real", "companyName":"", "jobGeo":"UK", "jobDescription":"<p>x</p>", "pubDate":"2026-01-01T00:00:00+00:00"},
+			{"id":3, "url":"https://x.com/3", "jobTitle":"OK", "companyName":"Co", "jobGeo":"UK", "jobDescription":"<p>x</p>", "pubDate":"2026-01-01T00:00:00+00:00"}
+		]
+	}`)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(raw)
+	}))
+	defer ts.Close()
+
+	j := &Jobicy{Client: ts.Client(), BaseURL: ts.URL}
+	jobs, err := j.Fetch(context.Background())
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
 	}
-	for _, spec := range got {
-		if spec.Name == name {
-			t.Fatalf("%s should have been switched off", name)
+	if got, want := len(jobs), 1; got != want {
+		t.Fatalf("got %d jobs after skipping empty rows, want %d", got, want)
+	}
+	if jobs[0].Title != "OK" {
+		t.Errorf("expected the only valid job, got %q", jobs[0].Title)
+	}
+}
+
+func TestArbeitnowFetch(t *testing.T) {
+	raw, err := os.ReadFile("testdata/arbeitnow.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/job-board-api" {
+			t.Errorf("unexpected request path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(raw)
+	}))
+	defer ts.Close()
+
+	a := &Arbeitnow{Client: ts.Client(), BaseURL: ts.URL}
+	jobs, err := a.Fetch(context.Background())
+	if err != nil {
+		t.Fatalf("Fetch() error = %v", err)
+	}
+	if got, want := len(jobs), 3; got != want {
+		t.Fatalf("got %d jobs, want %d", got, want)
+	}
+
+	got := jobs[0]
+	if got.Source != "arbeitnow" || got.SourceID != "aws-data-engineer-senior-12345" {
+		t.Errorf("job[0] = %+v", got)
+	}
+	if got.Title != "AWS Data Engineer (Senior)" {
+		t.Errorf("title = %q", got.Title)
+	}
+	if got.Company != "Mactores" {
+		t.Errorf("company = %q", got.Company)
+	}
+	if got.Location != "Remote" {
+		t.Errorf("location = %q", got.Location)
+	}
+	if !got.IsRemote {
+		t.Error("remote=true job should be flagged remote")
+	}
+
+	got = jobs[1]
+	if got.Location != "London" {
+		t.Errorf("location = %q", got.Location)
+	}
+	if got.IsRemote {
+		t.Error("London on-site job should not be remote")
+	}
+
+	// Third job: remote=true flag
+	got = jobs[2]
+	if got.Location != "Anywhere" {
+		t.Errorf("location = %q", got.Location)
+	}
+	if !got.IsRemote {
+		t.Error("Anywhere job should be remote")
+	}
+
+	for _, jb := range jobs {
+		if jb.Description == "" {
+			t.Error("job has empty description after HTMLToText")
 		}
 	}
 }

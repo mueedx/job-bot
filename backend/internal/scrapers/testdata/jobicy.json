@@ -1,0 +1,69 @@
+{
+  "apiVersion": "2.2.16",
+  "documentationUrl": "https://jobi.cy/apidocs",
+  "friendlyNotice": "Thanks for using Jobicy API! Ensure Jobicy is credited with a link to the source.",
+  "jobCount": 3,
+  "lastUpdate": "2026-09-20T05:00:14+00:00",
+  "appliedFilters": {
+    "count": 3
+  },
+  "jobs": [
+    {
+      "id": 151146,
+      "url": "https://jobicy.com/jobs/151146-aws-data-engineer-senior",
+      "jobSlug": "151146-aws-data-engineer-senior",
+      "jobTitle": "AWS Data Engineer (Senior)",
+      "companyName": "Mactores",
+      "companyLogo": "https://jobicy.com/data/server-nyc0409/galaxy/mercury/2025/06/cea77a13-221.jpeg",
+      "jobIndustry": [
+        "Data Science & Analytics"
+      ],
+      "jobType": [
+        "Full-Time"
+      ],
+      "jobGeo": "USA",
+      "jobLevel": "Senior",
+      "jobExcerpt": "Mactores is the agent-native AWS modernization firm.",
+      "jobDescription": "<p>Build and maintain data pipelines on Amazon EMR or Amazon Glue that run in production.</p><p>Design data models on Redshift, Snowflake, Athena and Presto.</p><ul><li>3+ years PySpark and SQL</li></ul>",
+      "pubDate": "2026-09-20T05:00:14+00:00"
+    },
+    {
+      "id": 151147,
+      "url": "https://jobicy.com/jobs/151147-senior-react-engineer",
+      "jobTitle": "Senior React Engineer",
+      "companyName": "WebCo",
+      "companyLogo": "https://jobicy.com/data/placeholder.png",
+      "jobIndustry": [
+        "Web Development"
+      ],
+      "jobType": [
+        "Full-Time"
+      ],
+      "jobGeo": "UK",
+      "jobLevel": "Senior",
+      "jobExcerpt": "Senior React role in London.",
+      "jobDescription": "<p>Build React components and Next.js pages.</p><p>Work with TypeScript and NestJS backends.</p>",
+      "pubDate": "2026-09-19T12:00:00+00:00"
+    },
+    {
+      "id": 151148,
+      "url": "https://jobicy.com/jobs/151148-blockchain-dev",
+      "jobTitle": "Blockchain Developer",
+      "companyName": "ChainLabs",
+      "companyLogo": "https://jobicy.com/data/chain.png",
+      "jobIndustry": [
+        "Blockchain"
+      ],
+      "jobType": [
+        "Contract"
+      ],
+      "jobGeo": "Anywhere",
+      "jobLevel": "Mid",
+      "jobExcerpt": "Smart contract developer wanted.",
+      "jobDescription": "<p>Write Solidity smart contracts and test with Hardhat.</p><p>Integrate Chainlink oracles.</p><p>Remote-friendly, anywhere.</p>",
+      "pubDate": "2026-09-18T08:30:00+00:00"
+    }
+  ],
+  "success": true,
+  "error": null
+}

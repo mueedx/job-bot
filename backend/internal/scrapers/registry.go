@@ -334,4 +334,18 @@ var Registry = []Spec{
 		Note:      "Mostly German/European listings; enable only if your target regions include Germany or nearby",
 		Build:     func(d Deps) Scraper { return &Arbeitnow{Client: d.Client} },
 	},
+	{
+		Name:  "himalayas",
+		Label: "Himalayas",
+		Kind:  KindAggregator,
+		Note:  "Public JSON listing at jobs.himalayas.app; no auth required",
+		Build: func(d Deps) Scraper { return &Himalayas{Client: d.Client} },
+	},
+	{
+		Name:  "remotive",
+		Label: "Remotive",
+		Kind:  KindFeed,
+		Note:  "Rate-limited to ~4 requests/day per the API terms - keep the ingest interval sparse",
+		Build: func(d Deps) Scraper { return &Remotive{Client: d.Client} },
+	},
 }

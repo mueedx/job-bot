@@ -15,7 +15,7 @@ FastAPI gave you interactive docs at `/docs` for free. In Go there is no built-i
 | `/openapi.json` | `/openapi.yaml` — embedded spec file |
 | `/redoc` | Not shipped (you can add later) |
 
-**Why hand-written OpenAPI?** Go’s `net/http` does not introspect handlers the way FastAPI does. Tools like [swaggo](https://github.com/swaggo/swag) can generate a spec from code comments; for Phase 1 a small YAML next to the handlers is clearer and enough.
+**Why hand-written OpenAPI?** Go's `net/http` does not introspect handlers the way FastAPI does. Tools like [swaggo](https://github.com/swaggo/swag) can generate a spec from code comments; for Phase 1 a small YAML next to the handlers is clearer and enough.
 
 Open in the browser while the server runs: [http://localhost:8000/docs](http://localhost:8000/docs). Visiting `/` redirects there.
 
@@ -61,11 +61,11 @@ In Go, **`package main` + `func main()`** is how you get a runnable binary. Putt
 - `main` stays thin: load config → open DB → build router → listen.
 - Business logic does **not** live in `main`.
 
-Think of `cmd/server` as Nest’s `main.ts` — bootstrapping only.
+Think of `cmd/server` as Nest's `main.ts` — bootstrapping only.
 
 ### Why `internal/`?
 
-Go’s compiler enforces a rule: **code under `internal/` can only be imported by packages inside the same module** (roughly “this repo”). That keeps your DB store and handlers private so random other projects cannot depend on them.
+Go's compiler enforces a rule: **code under `internal/` can only be imported by packages inside the same module** (roughly "this repo"). That keeps your DB store and handlers private so random other projects cannot depend on them.
 
 Contrast NestJS, where everything is importable unless you discipline yourself. Here the filesystem + compiler do that for you.
 
@@ -75,7 +75,7 @@ Python projects often use `app/main.py` + `app/api/`. That works. Go style prefe
 
 - `cmd` = binaries  
 - `internal` = private library code  
-- optional `pkg` = public libraries (we don’t need it yet)
+- optional `pkg` = public libraries (we don't need it yet)
 
 ---
 
@@ -92,7 +92,7 @@ HTTP request → api handler → db.Store → SQLite
 - **`internal/db`**: all SQL. Handlers never write raw SQL.
 - **`internal/models`**: structs with `json` and `db` tags — shared DTOs/entities.
 
-This is close to Nest’s **Controller → Service → Repository**, except we currently merge “service + repository” into `Store` because Phase 1 has no domain logic yet. When matcher/drafter arrive, they go in `internal/services` and call `Store`.
+This is close to Nest's **Controller → Service → Repository**, except we currently merge "service + repository" into `Store` because Phase 1 has no domain logic yet. When matcher/drafter arrive, they go in `internal/services` and call `Store`.
 
 ### Pattern B — Dependency injection via struct fields (not a DI framework)
 
@@ -106,11 +106,11 @@ type Server struct {
 
 ### Pattern C — Chi router (composable `net/http`)
 
-We use [chi](https://github.com/go-chi/chi), not Gin/Echo, because it sits on Go’s standard `http.Handler` interface:
+We use [chi](https://github.com/go-chi/chi), not Gin/Echo, because it sits on Go's standard `http.Handler` interface:
 
 - Middleware is just `func(http.Handler) http.Handler`.
 - Easy to test with `httptest`.
-- Nested routes (`/api/...`) mirror how you’d group Nest controllers.
+- Nested routes (`/api/...`) mirror how you'd group Nest controllers.
 
 FastAPI ≈ decorators on functions. Chi ≈ explicit route table in `router.go`.
 
@@ -127,7 +127,7 @@ SQLite driver: [`modernc.org/sqlite`](https://pkg.go.dev/modernc.org/sqlite) —
 var schemaSQL string
 ```
 
-and similarly for `openapi.yaml`. The file is compiled into the binary. No “forgot to copy schema.sql next to the executable” at deploy time. Nest/Next often ship assets beside the app; Go prefers embedding small assets.
+and similarly for `openapi.yaml`. The file is compiled into the binary. No "forgot to copy schema.sql next to the executable" at deploy time. Nest/Next often ship assets beside the app; Go prefers embedding small assets.
 
 ### Pattern F — Explicit errors as values
 
@@ -139,7 +139,7 @@ Handlers map `ErrNotFound` → 404, `ErrConflict` → 409. Go has no exceptions;
 
 ### Pattern G — Package-by-layer (for now)
 
-Packages are named by **technical role** (`api`, `db`, `models`), not by feature (`jobs`, `applications`). That matches Phase 1 size. If the app grows, Go teams often switch to **package-by-feature** (`internal/jobs`, `internal/apply`). Either is fine; don’t over-split early.
+Packages are named by **technical role** (`api`, `db`, `models`), not by feature (`jobs`, `applications`). That matches Phase 1 size. If the app grows, Go teams often switch to **package-by-feature** (`internal/jobs`, `internal/apply`). Either is fine; don't over-split early.
 
 ---
 
@@ -173,7 +173,7 @@ go run ./cmd/server
 | http://localhost:8000/health | Liveness |
 | http://localhost:8000/api/stats | Pipeline counts |
 
-Tests that don’t need a live port:
+Tests that don't need a live port:
 
 ```bash
 go test ./internal/api/ -v
@@ -199,7 +199,7 @@ When you add those, keep the rule: **handlers stay thin; side effects and SQL st
 - **Module** (`go.mod`): the import path root (`github.com/mueedx/job-bot/backend`).
 - **Package**: one folder of Go files sharing `package name`.
 - **Binary**: output of building a `main` package.
-- **Interface** (future): Go’s duck-typed contracts — great for swapping a fake store in tests.
+- **Interface** (future): Go's duck-typed contracts — great for swapping a fake store in tests.
 - **CGO**: calling C from Go; we avoid it so builds stay portable.
 
 If something in the tree still feels arbitrary, it is probably either (1) standard Go layout (`cmd`/`internal`), or (2) deliberate Phase 1 simplicity (Store instead of a full service layer). Both are intentional.

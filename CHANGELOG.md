@@ -11,6 +11,21 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Pipeline board is now interactive: drag job cards between columns to change
   their status (optimistic UI with revert + error banner on failure), via the
   existing `PATCH /api/jobs/{id}`.
+- Source registry: every job source is described in one place (label, kind,
+  supported countries, required API keys, paywall/attribution notes, opt-in
+  flags), so the ingest loop, the API and the dashboard cannot drift apart.
+- `GET /api/sources` and `GET /api/sources/health`, plus `make sources-check`:
+  probe every source and report how many postings each actually returned —
+  dead board slugs and blocked sites are now visible instead of silently
+  contributing nothing.
+- Settings: a `/settings` page (and `GET/PUT /api/settings`, stored in
+  `data/settings.yaml`) to turn job sites on/off and choose target regions as
+  2-letter country codes (defaults: ie, gb, pk, ae, sa, au, nz, us, ca).
+  Country-aware sources run only for enabled regions, and a source covering
+  none of them is skipped with a log line.
+- Pipeline shows an "Active" strip of the sources and regions a search will
+  use, and a "Min confidence" filter (persisted per browser) to hide jobs below
+  a chosen score.
 - Paywall indicator on source links: jobs from RemoteOK and the Crypto / Web3
   mirror carry an amber "paywall" badge on the board and the job page, warning
   that applying may require a RemoteOK Premium subscription or login. Free ATS

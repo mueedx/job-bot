@@ -242,7 +242,8 @@ rebuild (`docker compose up --build web`, or restart `npm run dev`).
 
 | Page | What you do there |
 |---|---|
-| `/` — **Pipeline** | Run searches, watch live progress and logs, and work the board: `discovered` → `scored` → `queued` → `applied` → `interview` / `rejected`. **Drag cards between columns** to update a job's status (optimistic — a failed save snaps the card back with an error) |
+| `/` — **Pipeline** | Run searches, watch live progress and logs, and work the board: `discovered` → `scored` → `queued` → `applied` → `interview` / `rejected`. **Drag cards between columns** to update a job's status (optimistic — a failed save snaps the card back with an error). The **Active** strip shows which sites and regions a search will use, and **Min confidence** hides jobs below a score you choose (remembered per browser) |
+| `/settings` — **Settings** | Turn job sites on/off, and choose the target regions (2-letter country codes, e.g. `ie`, `gb`, `ae`). **Test sources now** probes every site live. Saved to `data/settings.yaml` |
 | `/jobs/{id}` | Read the match score, matched/missing skills, and score reasons; read and edit the cover letter; **Switch Track** to re-route the resume; **Approve**; **Discard** |
 | `/stats` — **Analytics** | Totals by status (applications, interviews, rejections) |
 
@@ -284,6 +285,8 @@ http://localhost:8000/openapi.yaml).
 | `GET` | `/api/resumes` | Which PDF each track resolves to, and what is missing |
 | `GET` | `/api/sources` | Known sources: label, kind, supported countries, required keys, notes, ready/enabled |
 | `GET` | `/api/sources/health` | Probe every source live — postings found, errors, or why it was skipped |
+| `GET` | `/api/settings` | Source toggles and target regions (defaults when `data/settings.yaml` is absent) |
+| `PUT` | `/api/settings` | Replace source toggles and/or target regions (2-letter country codes) |
 | `GET` | `/api/stats` | Counts by status |
 | `POST` | `/api/dev/seed` | Insert demo jobs for exploring the UI |
 | `POST` | `/api/apply/{id}` | Submission stub — always `501` |

@@ -8,6 +8,7 @@ import { API_BASE_URL } from "@/lib/api";
 const links = [
   { href: "/", label: "Pipeline" },
   { href: "/stats", label: "Analytics" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export function AppNav() {

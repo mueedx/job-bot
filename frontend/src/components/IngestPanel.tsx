@@ -34,7 +34,7 @@ function prettySource(name: string): string {
       return "Ashby";
     case "remoteok":
       return "RemoteOK";
-    case "cryptojobs":
+    case "web3":
       return "Crypto / Web3";
     default:
       return name;

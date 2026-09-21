@@ -1,30 +1,6 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 /**
- * Sources whose apply flow is gated behind a subscription or login, verified
- * against the live apply flow. Free ATS boards (greenhouse, lever, ashby) take
- * you straight to the company's own application form and are deliberately
- * absent — an unknown source also shows nothing rather than an unverified claim.
- */
-const PAYWALLED_SOURCES: Record<string, string> = {
-  remoteok:
-    "Applying may require a RemoteOK Premium subscription or login",
-  cryptojobs:
-    "CryptoJobs mirrors RemoteOK listings; applying may require a RemoteOK Premium subscription or login",
-};
-
-/**
- * Human-readable paywall warning for a job source, or null when the source is
- * known-free or unverified (no badge is shown in either case).
- */
-export function paywallNotice(
-  source: string | null | undefined,
-): string | null {
-  if (!source) return null;
-  return PAYWALLED_SOURCES[source.toLowerCase()] ?? null;
-}
-
-/**
  * Track tokens mirrored from the backend (internal/resumes). Keep the two lists
  * in sync so the UI shows the same track the server picked for a resume file.
  */
@@ -158,6 +134,55 @@ export type IngestStatus = {
   logs: IngestLogLine[];
 };
 
+/** A known job source as reported by GET /api/sources and /api/settings. */
+export type SourceInfo = {
+  name: string;
+  label: string;
+  kind: string; // board | aggregator | feed | gated
+  countries: string[];
+  env_keys: string[];
+  note?: string;
+  opt_in_env?: string;
+  fragile: boolean;
+  unverified: boolean;
+  needs_targets: boolean;
+  ready: boolean;
+  reason?: string;
+  enabled: boolean;
+};
+
+/** User-editable runtime configuration (data/settings.yaml). */
+export type AppSettings = {
+  sources: Record<string, boolean>;
+  recruiter_countries: string[];
+};
+
+export type SettingsResponse = {
+  settings: AppSettings;
+  sources: SourceInfo[];
+  defaults?: string[];
+};
+
+/** Result of probing one source (GET /api/sources/health). */
+export type SourceHealth = {
+  name: string;
+  label: string;
+  kind: string;
+  ready: boolean;
+  reason?: string;
+  checked: boolean;
+  ok: boolean;
+  count: number;
+  error?: string;
+  duration_ms: number;
+  unverified: boolean;
+};
+
+export type SourcesHealthResponse = {
+  checked_at: string;
+  results: SourceHealth[];
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
@@ -232,6 +257,17 @@ export const api = {
   startIngest: () =>
     request<IngestStatus>(`/api/ingest/run`, { method: "POST" }),
   ingestStatus: () => request<IngestStatus>(`/api/ingest/status`),
+  getSettings: () => request<SettingsResponse>(`/api/settings`),
+  saveSettings: (payload: {
+    sources?: Record<string, boolean>;
+    recruiter_countries?: string[];
+  }) =>
+    request<SettingsResponse>(`/api/settings`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  sourcesHealth: () =>
+    request<SourcesHealthResponse>(`/api/sources/health`),
 };
 
 export function columnForStatus(status: string): string {

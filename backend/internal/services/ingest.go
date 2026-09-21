@@ -14,6 +14,7 @@ import (
 
 	"github.com/mueedx/job-bot/backend/internal/db"
 	"github.com/mueedx/job-bot/backend/internal/models"
+	"github.com/mueedx/job-bot/backend/internal/resumes"
 	"github.com/mueedx/job-bot/backend/internal/scrapers"
 	"gopkg.in/yaml.v3"
 )
@@ -51,6 +52,7 @@ type Ingestor struct {
 	Store    *db.Store
 	DataDir  string
 	Client   *http.Client
+	Analyzer *ResumeAnalyzer
 	Drafter  *Drafter
 	Notifier func(job *models.Job, match *models.Match)
 
@@ -172,12 +174,38 @@ func (ing *Ingestor) execute(ctx context.Context) IngestStatus {
 		client = &http.Client{Timeout: 30 * time.Second}
 	}
 
-	list := []scrapers.Scraper{
-		&scrapers.Greenhouse{Client: client, Slugs: targets.Greenhouse},
-		&scrapers.Lever{Client: client, Slugs: targets.Lever},
-		&scrapers.Ashby{Client: client, Slugs: targets.Ashby},
-		&scrapers.RemoteOK{Client: client},
-		&scrapers.CryptoJobs{Client: client},
+	// Sources come from the registry, gated by the user's settings (source
+	// toggles and target regions) so adding a source never means editing this
+	// loop and a switched-off region really is not fetched.
+	settings, err := LoadSettings(ing.DataDir)
+	if err != nil {
+		ing.logLine("warn", "Could not read settings.yaml — running with defaults ("+err.Error()+").")
+		settings = DefaultSettings()
+	}
+
+	// Build resume profiles (uses AI extraction when OPENAI_API_KEY is set;
+	// falls back to filename/keyword heuristics otherwise). Profiles are
+	// cached per content hash, so typically only changed resumes get re-analyzed.
+	var profiles []ExtractedProfile
+	if ing.Analyzer != nil {
+		entries := resumes.Available()
+		for _, e := range entries {
+			p, perr := ing.Analyzer.AnalyzePDF(ctx, e.Path)
+			if perr != nil {
+				ing.logLine("warn", fmt.Sprintf("analyze resume %s: %v", e.Path, perr))
+				continue
+			}
+			profiles = append(profiles, *p)
+		}
+		if len(profiles) > 0 {
+			ing.logLine("info", fmt.Sprintf("Prepared %d resume profiles (%s).", len(profiles), profiles[0].Source))
+		}
+	}
+
+	deps := scrapers.Deps{Client: client, Targets: targets, Countries: settings.RecruiterCountries}
+	list, skipped := scrapers.BuildScoped(deps, settings.Sources, settings.RecruiterCountries)
+	for _, skip := range skipped {
+		ing.logLine("info", skip.Label+" skipped: "+skip.Reason)
 	}
 
 	ing.setStatus(func(s *IngestStatus) {
@@ -277,7 +305,7 @@ func (ing *Ingestor) execute(ctx context.Context) IngestStatus {
 		}
 		inserted++
 
-		result := MatchJob(job)
+		result := MatchJobWithProfiles(job, profiles)
 		ms := SkillsJSON(result.MatchedSkills)
 		miss := SkillsJSON(result.MissingSkills)
 		reasons := result.ScoreReasons
@@ -354,22 +382,9 @@ func (ing *Ingestor) execute(ctx context.Context) IngestStatus {
 	return ing.Status()
 }
 
-func displaySource(name string) string {
-	switch name {
-	case "greenhouse":
-		return "Greenhouse"
-	case "lever":
-		return "Lever"
-	case "ashby":
-		return "Ashby"
-	case "remoteok":
-		return "RemoteOK"
-	case "cryptojobs":
-		return "Crypto / Web3"
-	default:
-		return name
-	}
-}
+// displaySource is the human label for a source, taken from the source registry
+// so the backend and the dashboard can never drift apart.
+func displaySource(name string) string { return scrapers.Label(name) }
 
 func friendlySourceError(source string, err error) string {
 	msg := err.Error()

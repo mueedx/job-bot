@@ -150,11 +150,11 @@ func TestPathRejectsUnknownTrack(t *testing.T) {
 func TestTrackInverse(t *testing.T) {
 	cases := map[string]string{
 		"resumes/Jane_Doe_Forward_Deployed.pdf": "fde",
-		"resumes/fullstack.pdf":              "fullstack",
-		"resumes/Jane_Doe_Blockchain.pdf":    "blockchain",
-		"resumes/candidate-web3.pdf":         "blockchain",
-		"":                                   "fullstack",
-		"resumes/whatever.pdf":               "fullstack",
+		"resumes/fullstack.pdf":                 "fullstack",
+		"resumes/Jane_Doe_Blockchain.pdf":       "blockchain",
+		"resumes/candidate-web3.pdf":            "blockchain",
+		"":                                      "fullstack",
+		"resumes/whatever.pdf":                  "fullstack",
 	}
 
 	for path, want := range cases {

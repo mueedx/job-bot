@@ -163,6 +163,46 @@ paths:
                     items:
                       $ref: "#/components/schemas/ResumeEntry"
 
+  /api/resumes/analyze:
+    post:
+      tags: [resumes]
+      summary: Analyze all resume PDFs for AI-extracted keywords
+      description: >-
+        Runs PDF text extraction and (when OPENAI_API_KEY is set) AI keyword
+        extraction on every resume PDF found in the resumes directory. Without an
+        API key this still runs but only records filename-based track inference.
+        Profiles are cached per content hash — only changed PDFs trigger an LLM
+        call. Results are available in GET /api/resumes as the profiles array.
+      operationId: analyzeResumes
+      responses:
+        "200":
+          description: Analysis complete
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  analyzed:
+                    type: integer
+                    description: Number of resumes analyzed
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                          description: Resume file path
+                        source:
+                          type: string
+                          description: 'Source: "openai" | "fallback" | "cached"'
+                        track:
+                          type: string
+                        error:
+                          type: string
+        "503":
+          description: Analyzer not configured
+
   /api/ingest/run:
     post:
       tags: [ingest]
@@ -371,6 +411,126 @@ paths:
                 $ref: "#/components/schemas/Error"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/recruiters:
+    get:
+      tags: [recruiters]
+      summary: Recruitment agencies directory
+      description: >
+        Returns the curated recruitment agency directory filtered to the user's
+        enabled countries, with optional track and country filters. Merges the
+        shipped catalog with data/recruiters.yaml (user overrides/disables/adds).
+      parameters:
+        - name: track
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated track tokens, e.g. fullstack,blockchain
+        - name: countries
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated country codes, e.g. ie,gb,pk. Defaults to enabled regions from settings.
+      responses:
+        "200":
+          description: Recruiter directory
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recruiters:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Recruiter"
+                  grouped_by_country:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/Recruiter"
+                  shipped_count:
+                    type: integer
+                  countries_filtered_to:
+                    type: array
+                    items:
+                      type: string
+        "500":
+          $ref: "#/components/responses/Error"
+  /api/settings:
+    get:
+      tags: [sources]
+      summary: Source toggles and target regions
+      description: >
+        Returns the saved settings (which sources are on/off and which regions
+        are targeted) plus the full source registry with per-source readiness,
+        so the dashboard can explain why a source cannot run. A missing
+        settings file returns defaults.
+      operationId: getSettings
+      responses:
+        "200":
+          description: Current settings and source registry
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  settings:
+                    $ref: "#/components/schemas/Settings"
+                  sources:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SourceInfo"
+                  defaults:
+                    type: array
+                    description: Default target regions used when none are configured.
+                    items:
+                      type: string
+    put:
+      tags: [sources]
+      summary: Replace source toggles and/or target regions
+      description: >
+        Both fields are optional; omitted fields keep their current value.
+        Source names must exist in the registry and regions must be 2-letter
+        country codes, otherwise the request fails with 400.
+      operationId: saveSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sources:
+                  type: object
+                  description: Source name to enabled/disabled.
+                  additionalProperties:
+                    type: boolean
+                recruiter_countries:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Saved settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  settings:
+                    $ref: "#/components/schemas/Settings"
+                  sources:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SourceInfo"
+        "400":
+          description: Unknown source name or invalid country code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /api/stats:
     get:
       tags: [stats]
@@ -383,6 +543,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Stats"
+  /api/sources:
+    get:
+      tags: [sources]
+      summary: List known job sources and whether each can run
+      description: >
+        Metadata for every known source (label, kind, supported countries,
+        required API keys, paywall/attribution notes) plus whether it is ready
+        to run right now and why not when it is not.
+      operationId: listSources
+      responses:
+        "200":
+          description: Known sources
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sources:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SourceInfo"
+  /api/sources/health:
+    get:
+      tags: [sources]
+      summary: Probe each enabled source and report what came back
+      description: >
+        Fetches from every enabled source in parallel and reports the number of
+        postings each returned. Sources that are switched off, missing an API
+        key, or opt-in-disabled are reported as skipped with a reason rather
+        than as failures.
+      operationId: checkSourcesHealth
+      responses:
+        "200":
+          description: Per-source probe results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checked_at:
+                    type: string
+                    format: date-time
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SourceHealth"
+        "503":
+          description: Job search unavailable (ingestor not configured)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   parameters:
     JobId:
@@ -560,6 +772,96 @@ components:
           type: object
           additionalProperties:
             type: integer
+    SourceInfo:
+      type: object
+      description: A known job source and whether it can run right now.
+      properties:
+        name:
+          type: string
+          description: Stable id; matches jobs.source
+        label:
+          type: string
+        kind:
+          type: string
+          enum: [board, aggregator, feed, gated]
+        countries:
+          type: array
+          description: Country codes this source targets; empty means global.
+          items:
+            type: string
+        env_keys:
+          type: array
+          description: Environment variables required before the source can run.
+          items:
+            type: string
+        note:
+          type: string
+          description: Paywall or attribution obligation to show the user.
+        opt_in_env:
+          type: string
+          description: Env var that must be "true" to enable this gated source.
+        fragile:
+          type: boolean
+          description: Known to break or be blocked by the site.
+        unverified:
+          type: boolean
+          description: Parsing never confirmed against live markup.
+        ready:
+          type: boolean
+        reason:
+          type: string
+          description: Why the source cannot run (missing key, not opted in).
+        enabled:
+          type: boolean
+    SourceHealth:
+      type: object
+      description: Result of probing one source.
+      properties:
+        name:
+          type: string
+        label:
+          type: string
+        kind:
+          type: string
+        ready:
+          type: boolean
+        reason:
+          type: string
+        checked:
+          type: boolean
+          description: False when the source was skipped rather than probed.
+        ok:
+          type: boolean
+        count:
+          type: integer
+          description: Postings returned by the probe.
+        error:
+          type: string
+        duration_ms:
+          type: integer
+        unverified:
+          type: boolean
+
+    Settings:
+      type: object
+      description: >
+        User-editable runtime configuration, stored as data/settings.yaml and
+        editable from the dashboard.
+      properties:
+        sources:
+          type: object
+          description: Which job sources are enabled.
+          additionalProperties:
+            type: boolean
+        recruiter_countries:
+          type: array
+          description: >
+            Target regions as lowercase 2-letter country codes. Scopes
+            country-aware sources and the recruiter directory.
+          items:
+            type: string
+            example: ie
+
     IngestLogLine:
       type: object
       properties:

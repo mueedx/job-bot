@@ -1,5 +1,5 @@
 # Convenience targets for local development. Docker Compose is the recommended path.
-.PHONY: help setup dev-api dev-web test test-api test-web build docker docker-down logs seed tidy clean
+.PHONY: help setup dev-api dev-web test test-api test-web build docker docker-down logs seed tidy clean sec sources-check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -25,6 +25,9 @@ test-web: ## Lint and build the frontend
 
 sec: ## Scan the repo for leaked secrets (requires gitleaks)
 	gitleaks detect --source . --redact
+
+sources-check: ## Probe every enabled job source and report what actually came back
+	curl -fsS http://localhost:8000/api/sources/health | jq -r '.results[] | if .checked then "\(.label): \(.count) jobs\(if .ok then "" else " — " + (.error // "no jobs") end)" else "\(.label): skipped (\(.reason))" end'
 
 build: ## Build the Docker images
 	docker compose build

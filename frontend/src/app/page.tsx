@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActiveSources } from "@/components/ActiveSources";
 import { IngestPanel } from "@/components/IngestPanel";
 import { KanbanColumn } from "@/components/KanbanColumn";
 import {
@@ -23,6 +24,20 @@ export default function PipelinePage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  // Confidence filter: 0 shows everything. Kept in localStorage so the board
+  // opens the way you left it. Unscored jobs are never hidden by it.
+  const [minScore, setMinScore] = useState(0);
+
+  useEffect(() => {
+    const raw = window.localStorage.getItem("jobbot:min-score");
+    const n = raw == null ? 0 : Number(raw);
+    if (Number.isFinite(n) && n >= 0 && n <= 1) setMinScore(n);
+  }, []);
+
+  function changeMinScore(value: number) {
+    setMinScore(value);
+    window.localStorage.setItem("jobbot:min-score", String(value));
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -46,6 +61,15 @@ export default function PipelinePage() {
     void load();
   }, [load]);
 
+  const visible = useMemo(
+    () =>
+      minScore > 0
+        ? jobs.filter((j) => j.score == null || j.score >= minScore)
+        : jobs,
+    [jobs, minScore],
+  );
+  const hiddenCount = jobs.length - visible.length;
+
   const grouped = useMemo(() => {
     const map: Record<string, Job[]> = {
       discovered: [],
@@ -54,12 +78,12 @@ export default function PipelinePage() {
       interview: [],
       archived: [],
     };
-    for (const job of jobs) {
+    for (const job of visible) {
       const col = columnForStatus(job.status);
       (map[col] ?? map.discovered).push(job);
     }
     return map;
-  }, [jobs]);
+  }, [visible]);
 
   /**
    * Optimistically move a card to another column, then persist the status via
@@ -127,6 +151,32 @@ export default function PipelinePage() {
             </>
           }
         />
+      </div>
+
+      <ActiveSources />
+
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <label className="flex items-center gap-2 text-[var(--muted)]">
+          Min confidence
+          <select
+            value={String(minScore)}
+            onChange={(e) => changeMinScore(Number(e.target.value))}
+            className="rounded-sm border border-[var(--line)] bg-[var(--panel)] px-2 py-1.5 text-sm text-[var(--ink)]"
+          >
+            <option value="0">Any</option>
+            <option value="0.5">50%+</option>
+            <option value="0.6">60%+</option>
+            <option value="0.7">70%+</option>
+            <option value="0.8">80%+</option>
+            <option value="0.9">90%+</option>
+          </select>
+        </label>
+        {hiddenCount > 0 ? (
+          <span className="text-xs text-[var(--muted)]">
+            {hiddenCount} job{hiddenCount === 1 ? "" : "s"} below the threshold
+            hidden
+          </span>
+        ) : null}
       </div>
 
       {error ? (

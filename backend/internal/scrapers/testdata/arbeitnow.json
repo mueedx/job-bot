@@ -1,0 +1,55 @@
+{
+  "data": [
+    {
+      "slug": "aws-data-engineer-senior-12345",
+      "company_name": "Mactores",
+      "title": "AWS Data Engineer (Senior)",
+      "description": "<p>Build and maintain data pipelines on Amazon EMR or Amazon Glue.</p><p>Design data models on Redshift and Snowflake.</p><ul><li>3+ years PySpark and SQL</li></ul>",
+      "remote": true,
+      "url": "https://www.arbeitnow.com/jobs/companies/mactores/aws-data-engineer-senior-12345",
+      "tags": [
+        "Data Engineering",
+        "AWS"
+      ],
+      "job_types": [
+        "Full-Time"
+      ],
+      "location": "Remote",
+      "created_at": 1789912828
+    },
+    {
+      "slug": "react-engineer-london-67890",
+      "company_name": "WebCo UK",
+      "title": "Senior React Engineer",
+      "description": "<p>Build React components and Next.js pages.</p><p>Work with TypeScript and NestJS.</p>",
+      "remote": false,
+      "url": "https://www.arbeitnow.com/jobs/companies/webco-uk/react-engineer-london-67890",
+      "tags": [
+        "React",
+        "TypeScript"
+      ],
+      "job_types": [
+        "Full-Time"
+      ],
+      "location": "London",
+      "created_at": 1789900000
+    },
+    {
+      "slug": "blockchain-dev-anywhere-11111",
+      "company_name": "ChainLabs",
+      "title": "Blockchain Developer",
+      "description": "<p>Write Solidity smart contracts.</p><p>Test with Hardhat and Foundry.</p><p>Remote anywhere.</p>",
+      "remote": true,
+      "url": "https://www.arbeitnow.com/jobs/companies/chainlabs/blockchain-dev-anywhere-11111",
+      "tags": [
+        "Solidity",
+        "Blockchain"
+      ],
+      "job_types": [
+        "Contract"
+      ],
+      "location": "Anywhere",
+      "created_at": 1789800000
+    }
+  ]
+}

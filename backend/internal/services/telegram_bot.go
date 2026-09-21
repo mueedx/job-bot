@@ -108,8 +108,8 @@ type tgUpdate struct {
 		} `json:"chat"`
 	} `json:"message"`
 	CallbackQuery *struct {
-		ID   string `json:"id"`
-		Data string `json:"data"`
+		ID      string `json:"id"`
+		Data    string `json:"data"`
 		Message *struct {
 			Chat struct {
 				ID int64 `json:"id"`

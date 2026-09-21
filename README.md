@@ -323,6 +323,10 @@ job-bot/
 ```
 
 New to Go, or coming from NestJS/FastAPI? [docs/architecture.md](docs/architecture.md)
+explains how the code is organised, and
+[docs/tech-stack.md](docs/tech-stack.md) explains the stack choices, the
+database rationale, and the algorithms behind the matcher and eligibility
+engine.
 explains the layout and the patterns used.
 
 ## Testing

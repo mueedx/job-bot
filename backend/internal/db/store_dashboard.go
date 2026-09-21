@@ -64,8 +64,9 @@ func (s *Store) GetJobDetail(jobID int64) (*models.JobDetail, error) {
 
 // ListJobsEnriched returns jobs with optional match score/track.
 // postedAfter, when non-nil, hides postings older than that instant
-// (postings with an unknown date are always kept).
-func (s *Store) ListJobsEnriched(status string, limit int, postedAfter *time.Time) ([]models.JobListItem, error) {
+// (postings with an unknown date are always kept). eligibility, when non-empty,
+// keeps only jobs with that stored verdict ("veto" | "pass" | "unknown").
+func (s *Store) ListJobsEnriched(status string, limit int, postedAfter *time.Time, eligibility string) ([]models.JobListItem, error) {
 	if limit <= 0 {
 		limit = 100
 	}
@@ -77,6 +78,8 @@ func (s *Store) ListJobsEnriched(status string, limit int, postedAfter *time.Tim
 		SELECT j.id, j.source, j.source_id, j.url, j.title, j.company, j.location,
 		       j.is_remote, j.is_relocation, j.salary_min, j.salary_max,
 		       j.description, j.posted_at, j.status, j.created_at,
+		       j.eligibility, j.eligibility_rule, j.eligibility_reason,
+		       j.eligibility_signals, j.eligibility_applied,
 		       m.score AS score, m.track AS track
 		FROM jobs j
 		LEFT JOIN matches m ON m.job_id = j.id`
@@ -85,6 +88,10 @@ func (s *Store) ListJobsEnriched(status string, limit int, postedAfter *time.Tim
 	if status != "" {
 		conditions = append(conditions, "j.status = ?")
 		args = append(args, status)
+	}
+	if eligibility != "" {
+		conditions = append(conditions, "j.eligibility = ?")
+		args = append(args, eligibility)
 	}
 	// Job age window: jobs without a known date are always kept.
 	if postedAfter != nil {

@@ -27,6 +27,18 @@ export default function PipelinePage() {
   // Confidence filter: 0 shows everything. Kept in localStorage so the board
   // opens the way you left it. Unscored jobs are never hidden by it.
   const [minScore, setMinScore] = useState(0);
+  // Hide postings your eligibility rules vetoed. Kept in localStorage like the
+  // confidence filter — "unknown" verdicts are never hidden by it.
+  const [hideVetoed, setHideVetoed] = useState(true);
+
+  useEffect(() => {
+    setHideVetoed(window.localStorage.getItem("jobbot:hide-vetoed") !== "0");
+  }, []);
+
+  function changeHideVetoed(value: boolean) {
+    setHideVetoed(value);
+    window.localStorage.setItem("jobbot:hide-vetoed", value ? "1" : "0");
+  }
 
   useEffect(() => {
     const raw = window.localStorage.getItem("jobbot:min-score");
@@ -63,10 +75,11 @@ export default function PipelinePage() {
 
   const visible = useMemo(
     () =>
-      minScore > 0
+      (minScore > 0
         ? jobs.filter((j) => j.score == null || j.score >= minScore)
-        : jobs,
-    [jobs, minScore],
+        : jobs
+      ).filter((j) => !hideVetoed || j.eligibility !== "veto"),
+    [jobs, minScore, hideVetoed],
   );
   const hiddenCount = jobs.length - visible.length;
 
@@ -170,6 +183,15 @@ export default function PipelinePage() {
             <option value="0.8">80%+</option>
             <option value="0.9">90%+</option>
           </select>
+        </label>
+        <label className="flex items-center gap-2 text-[var(--muted)]">
+          <input
+            type="checkbox"
+            checked={hideVetoed}
+            onChange={(e) => changeHideVetoed(e.target.checked)}
+            className="accent-[var(--accent)]"
+          />
+          Hide vetoed by eligibility rules
         </label>
         {hiddenCount > 0 ? (
           <span className="text-xs text-[var(--muted)]">

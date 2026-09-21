@@ -48,6 +48,18 @@ func Migrate(db *sqlx.DB) error {
 	if err := addColumnIfMissing(db, "jobs", "posted_at", "DATETIME"); err != nil {
 		return err
 	}
+	// Eligibility verdict columns (services.EligibilityRules).
+	for _, col := range []struct{ name, decl string }{
+		{"eligibility", "TEXT"},
+		{"eligibility_rule", "TEXT"},
+		{"eligibility_reason", "TEXT"},
+		{"eligibility_signals", "TEXT"},
+		{"eligibility_applied", "BOOLEAN DEFAULT 0"},
+	} {
+		if err := addColumnIfMissing(db, "jobs", col.name, col.decl); err != nil {
+			return err
+		}
+	}
 	if err := repairDescriptions(db); err != nil {
 		return err
 	}

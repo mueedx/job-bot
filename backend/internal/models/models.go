@@ -19,6 +19,18 @@ type Job struct {
 	PostedAt     *time.Time `db:"posted_at" json:"posted_at"`
 	Status       string     `db:"status" json:"status"`
 	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
+
+	// Eligibility is the stored verdict of the eligibility rules
+	// (pass | veto | unknown) for this posting, with the deciding rule, a
+	// human-readable reason and the matched phrases as a JSON array. Nil means
+	// the posting was never evaluated (e.g. stored before the rules existed).
+	Eligibility        *string `db:"eligibility" json:"eligibility"`
+	EligibilityRule    *string `db:"eligibility_rule" json:"eligibility_rule"`
+	EligibilityReason  *string `db:"eligibility_reason" json:"eligibility_reason"`
+	EligibilitySignals *string `db:"eligibility_signals" json:"eligibility_signals"`
+	// EligibilityApplied records that the engine (not the operator) set the
+	// current status, so re-checking rules never undoes a manual board move.
+	EligibilityApplied bool `db:"eligibility_applied" json:"eligibility_applied"`
 }
 
 // Match is the fit score and resume track for a job.

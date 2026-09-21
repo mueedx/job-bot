@@ -122,7 +122,7 @@ func TestListJobsEnrichedAgeFilter(t *testing.T) {
 	cutoff := now.AddDate(0, 0, -7)
 
 	// With the age window active, only recent + unknown-date postings remain.
-	items, err := store.ListJobsEnriched("", 50, &cutoff)
+	items, err := store.ListJobsEnriched("", 50, &cutoff, "")
 	if err != nil {
 		t.Fatalf("ListJobsEnriched with cutoff: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestListJobsEnrichedAgeFilter(t *testing.T) {
 	}
 
 	// With the window disabled, everything is visible.
-	all, err := store.ListJobsEnriched("", 50, nil)
+	all, err := store.ListJobsEnriched("", 50, nil, "")
 	if err != nil {
 		t.Fatalf("ListJobsEnriched without cutoff: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestListJobsEnrichedAgeFilter(t *testing.T) {
 	}
 
 	// Status filter combines with the age window.
-	items, err = store.ListJobsEnriched("discovered", 50, &cutoff)
+	items, err = store.ListJobsEnriched("discovered", 50, &cutoff, "")
 	if err != nil {
 		t.Fatalf("ListJobsEnriched with status + cutoff: %v", err)
 	}

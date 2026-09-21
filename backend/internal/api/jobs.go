@@ -25,7 +25,7 @@ func (s *Server) handleListJobs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.URL.Query().Get("enrich") == "1" {
-		jobs, err := s.Store.ListJobsEnriched(status, limit, services.JobAgeCutoff())
+		jobs, err := s.Store.ListJobsEnriched(status, limit, services.JobAgeCutoff(), r.URL.Query().Get("eligibility"))
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -127,6 +127,14 @@ func (s *Server) handleUpdateJob(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	// The operator set the status from the board: the eligibility engine must
+	// not move this card again on the next re-check.
+	if patch.Status != nil {
+		if err := s.Store.ClearEligibilityApplied(id); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, job)
 }

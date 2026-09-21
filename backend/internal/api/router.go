@@ -60,6 +60,9 @@ func NewRouter(s *Server) http.Handler {
 
 		r.Get("/settings", s.handleGetSettings)
 		r.Put("/settings", s.handleSaveSettings)
+
+		r.Post("/eligibility/preview", s.handlePreviewEligibility)
+		r.Post("/eligibility/reapply", s.handleReapplyEligibility)
 	})
 
 	return r

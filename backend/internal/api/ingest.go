@@ -62,7 +62,14 @@ func (s *Server) handleDraft(w http.ResponseWriter, r *http.Request) {
 	match, _ := s.Store.GetMatch(id)
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
-	if err := s.Drafter.DraftAndSave(ctx, job, match); err != nil {
+	opts := services.DraftOptions{}
+	if settings, err := services.LoadSettings(s.DataDir); err == nil {
+		rules := settings.Eligibility.WithDefaults()
+		opts.RelocationHint = rules.RelocationHint
+		verdict := services.EvaluateEligibility(job, rules)
+		opts.HighlightsRelocation = verdict.HighlightsRelocation
+	}
+	if err := s.Drafter.DraftAndSave(ctx, job, match, opts); err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}

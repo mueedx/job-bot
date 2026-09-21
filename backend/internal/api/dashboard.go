@@ -81,6 +81,8 @@ func (s *Server) handleDiscard(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	// Operator decision: the eligibility engine no longer owns this card.
+	_ = s.Store.ClearEligibilityApplied(id)
 	writeJSON(w, http.StatusOK, job)
 }
 
@@ -100,6 +102,8 @@ func (s *Server) handleApprove(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	// Operator decision: the eligibility engine no longer owns this card.
+	_ = s.Store.ClearEligibilityApplied(id)
 	// Honest automation: do not mark applied; submission engine is Phase 5.
 	writeJSON(w, http.StatusNotImplemented, map[string]any{
 		"detail": "Submission dispatcher not implemented yet (Phase 5). Job marked approved for review only — application was NOT sent.",

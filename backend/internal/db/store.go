@@ -27,6 +27,14 @@ func NewStore(db *sqlx.DB) *Store {
 	return &Store{db: db}
 }
 
+// jobColumns is the shared SELECT list for job rows, including the eligibility
+// verdict columns so every read returns the stored verdict.
+const jobColumns = `id, source, source_id, url, title, company, location,
+		       is_remote, is_relocation, salary_min, salary_max,
+		       description, posted_at, status, created_at,
+		       eligibility, eligibility_rule, eligibility_reason,
+		       eligibility_signals, eligibility_applied`
+
 // ListJobs returns jobs ordered by created_at desc, optionally filtered by status.
 func (s *Store) ListJobs(status string, limit int) ([]models.Job, error) {
 	if limit <= 0 {
@@ -39,17 +47,9 @@ func (s *Store) ListJobs(status string, limit int) ([]models.Job, error) {
 	var jobs []models.Job
 	var err error
 	if status != "" {
-		err = s.db.Select(&jobs, `
-			SELECT id, source, source_id, url, title, company, location,
-			       is_remote, is_relocation, salary_min, salary_max,
-			       description, posted_at, status, created_at
-			FROM jobs WHERE status = ? ORDER BY created_at DESC LIMIT ?`, status, limit)
+		err = s.db.Select(&jobs, `SELECT `+jobColumns+` FROM jobs WHERE status = ? ORDER BY created_at DESC LIMIT ?`, status, limit)
 	} else {
-		err = s.db.Select(&jobs, `
-			SELECT id, source, source_id, url, title, company, location,
-			       is_remote, is_relocation, salary_min, salary_max,
-			       description, posted_at, status, created_at
-			FROM jobs ORDER BY created_at DESC LIMIT ?`, limit)
+		err = s.db.Select(&jobs, `SELECT `+jobColumns+` FROM jobs ORDER BY created_at DESC LIMIT ?`, limit)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("list jobs: %w", err)
@@ -63,11 +63,7 @@ func (s *Store) ListJobs(status string, limit int) ([]models.Job, error) {
 // GetJob returns a job by id.
 func (s *Store) GetJob(id int64) (*models.Job, error) {
 	var job models.Job
-	err := s.db.Get(&job, `
-		SELECT id, source, source_id, url, title, company, location,
-		       is_remote, is_relocation, salary_min, salary_max,
-		       description, posted_at, status, created_at
-		FROM jobs WHERE id = ?`, id)
+	err := s.db.Get(&job, `SELECT `+jobColumns+` FROM jobs WHERE id = ?`, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -202,6 +198,42 @@ func isUniqueViolation(err error) bool {
 func (s *Store) SetApplicationQA(jobID int64, qa string) error {
 	_, err := s.db.Exec(`UPDATE applications SET custom_qa = ? WHERE job_id = ?`, qa, jobID)
 	return err
+}
+
+// ClearEligibilityApplied hands ownership of a job's status back to the
+// operator. Called whenever the operator sets a status (board drag, approve,
+// discard, Telegram action) so a later rules re-check never moves a card the
+// operator put somewhere on purpose.
+func (s *Store) ClearEligibilityApplied(jobID int64) error {
+	_, err := s.db.Exec(`UPDATE jobs SET eligibility_applied = 0 WHERE id = ?`, jobID)
+	if err != nil {
+		return fmt.Errorf("clear eligibility applied: %w", err)
+	}
+	return nil
+}
+
+// JobEligibility is the stored eligibility verdict for one job.
+type JobEligibility struct {
+	Status  string
+	Rule    string
+	Reason  string
+	Signals string
+	Applied bool
+}
+
+// SetJobEligibility stores the verdict for a job. Applied records whether the
+// engine introduced the job's current status (see EligibilityApplied).
+func (s *Store) SetJobEligibility(jobID int64, e JobEligibility) error {
+	_, err := s.db.Exec(`
+		UPDATE jobs SET
+			eligibility = ?, eligibility_rule = ?, eligibility_reason = ?,
+			eligibility_signals = ?, eligibility_applied = ?
+		WHERE id = ?`,
+		e.Status, e.Rule, e.Reason, e.Signals, e.Applied, jobID)
+	if err != nil {
+		return fmt.Errorf("set job eligibility: %w", err)
+	}
+	return nil
 }
 
 // CountJobsCreatedToday returns jobs created since UTC midnight.

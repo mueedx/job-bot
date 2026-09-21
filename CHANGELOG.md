@@ -8,6 +8,19 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Eligibility rules (`specs/004-eligibility-rules`): four operator-configurable
+  rules decide every posting before any drafting effort is spent. Worldwide /
+  global remote / hire-anywhere (incl. EOR and contractor) passes; on-site or
+  hybrid roles offering visa sponsorship AND relocation assistance pass and
+  flag the draft to highlight relocation readiness; country-bounded remote
+  (e.g. "Remote — US only", "must reside in Poland") is hard-vetoed, with an
+  optional exemption for countries where you already hold work rights
+  (`work_authorized_countries`); roles requiring existing local citizenship or
+  a work permit are hard-vetoed. Vetoed postings are archived before the
+  drafter runs — no LLM call, no Telegram ping. Every rule, phrase list and
+  country list is editable on `/settings` (with a live tester), via
+  `data/settings.yaml → eligibility`, or through
+  `POST /api/eligibility/preview` and `POST /api/eligibility/reapply`.
 - Pipeline board is now interactive: drag job cards between columns to change
   their status (optimistic UI with revert + error banner on failure), via the
   existing `PATCH /api/jobs/{id}`.

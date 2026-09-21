@@ -530,6 +530,95 @@ paths:
           content:
             application/json:
               schema:
+  /api/eligibility/preview:
+    post:
+      tags: [eligibility]
+      summary: Evaluate one posting against the eligibility rules
+      description: >
+        Runs the four eligibility rules (worldwide remote, sponsorship +
+        relocation, country-bounded remote, local citizenship/work permit)
+        over a single posting and returns the verdict. Nothing is stored —
+        this backs the tester on the settings page. An optional `rules`
+        object evaluates unsaved edits, so a policy can be tried before it
+        is saved.
+      operationId: previewEligibility
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                location:
+                  type: string
+                description:
+                  type: string
+                is_remote:
+                  type: boolean
+                rules:
+                  $ref: "#/components/schemas/EligibilityRules"
+      responses:
+        "200":
+          description: Verdict and the (possibly merged) policy that produced it
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verdict:
+                    $ref: "#/components/schemas/EligibilityVerdict"
+                  rules:
+                    $ref: "#/components/schemas/EligibilityRules"
+        "400":
+          description: Empty body or invalid JSON
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/eligibility/reapply:
+    post:
+      tags: [eligibility]
+      summary: Re-run eligibility rules over stored jobs
+      description: >
+        Re-evaluates stored jobs against the current (or submitted) policy so
+        a rule change takes effect without scraping again. Postings the
+        operator moved by hand (approved, kept, drafted) are left alone;
+        newly vetoed postings are archived before the drafter runs on the
+        next ingest.
+      operationId: reapplyEligibility
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rules:
+                  $ref: "#/components/schemas/EligibilityRules"
+      responses:
+        "200":
+          description: Counts of evaluated, vetoed and skipped postings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      evaluated:
+                        type: integer
+                      vetoed:
+                        type: integer
+                      skipped:
+                        type: integer
+        "500":
+          description: Database error while re-checking
+          content:
+            application/json:
+              schema:
                 $ref: "#/components/schemas/Error"
   /api/stats:
     get:
@@ -861,6 +950,93 @@ components:
           items:
             type: string
             example: ie
+        eligibility:
+          $ref: "#/components/schemas/EligibilityRules"
+
+    EligibilityRules:
+      type: object
+      description: >
+        The operator's eligibility policy. Every switch is optional; omitted
+        fields keep their value (defaults on first load). Phrase lists are
+        matched case-insensitively on word boundaries and `{country}` in a
+        phrase expands to any country the posting names.
+      properties:
+        enabled:
+          type: boolean
+          description: Master switch; off means nothing is filtered.
+        worldwide_remote_ok:
+          type: boolean
+          description: Pass worldwide / global remote / hire-anywhere roles (EOR counts).
+        sponsored_relocation_ok:
+          type: boolean
+          description: >
+            Pass on-site or hybrid roles offering visa sponsorship AND
+            relocation assistance; flags drafts to highlight relocation.
+        veto_country_bounded_remote:
+          type: boolean
+          description: Hard-reject remote roles bounded to one country.
+        veto_local_work_permit:
+          type: boolean
+          description: Hard-reject roles requiring existing local citizenship or a permit.
+        honor_work_authorized_countries:
+          type: boolean
+          description: >
+            Exempt country-bounded roles bounded to a country in
+            work_authorized_countries from the country-bounded veto.
+        veto_unknown:
+          type: boolean
+          description: Reject postings with no eligibility signal (off by default).
+        work_authorized_countries:
+          type: array
+          description: Lowercase ISO-3166 alpha-2 codes where you hold work rights.
+          items:
+            type: string
+        worldwide_phrases:
+          type: array
+          items: { type: string }
+        sponsorship_phrases:
+          type: array
+          items: { type: string }
+        relocation_phrases:
+          type: array
+          items: { type: string }
+        country_bounded_phrases:
+          type: array
+          items: { type: string }
+        work_permit_phrases:
+          type: array
+          items: { type: string }
+        work_permit_country_phrases:
+          type: array
+          items: { type: string }
+        relocation_hint:
+          type: string
+          description: >
+            Extra instruction passed to the drafter when a role passes on
+            sponsorship + relocation.
+
+    EligibilityVerdict:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pass, veto, unknown]
+        rule:
+          type: string
+          description: Which rule decided the outcome.
+        reason:
+          type: string
+        signals:
+          type: array
+          items: { type: string }
+        countries:
+          type: array
+          description: Countries the posting was found to name or require.
+          items: { type: string }
+        highlights_relocation:
+          type: boolean
+          description: >
+            True when the draft should highlight relocation readiness.
 
     IngestLogLine:
       type: object

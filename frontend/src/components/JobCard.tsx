@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Lock } from "lucide-react";
-import { formatPostAge, type Job } from "@/lib/api";
+import { formatPostAge, eligibilitySummary, type Job } from "@/lib/api";
 import { sourceNote } from "@/lib/sourceNotes";
 
 export function JobCard({ job }: { job: Job }) {
@@ -11,6 +11,7 @@ export function JobCard({ job }: { job: Job }) {
     job.score != null ? `${Math.round(job.score * 100)}%` : null;
   const age = formatPostAge(job.posted_at);
   const note = sourceNote(job.source);
+  const elig = eligibilitySummary(job);
   const [dragging, setDragging] = useState(false);
 
   return (
@@ -55,6 +56,22 @@ export function JobCard({ job }: { job: Job }) {
         {age ? (
           <span className="mono rounded-sm border border-[var(--line)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--muted)]">
             {age}
+          </span>
+        ) : null}
+        {elig.status === "veto" ? (
+          <span
+            title={elig.reason || "Rejected by your eligibility rules"}
+            className="mono cursor-help rounded-sm border border-red-300 bg-red-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-red-800 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-300"
+          >
+            vetoed
+          </span>
+        ) : null}
+        {elig.status === "pass" ? (
+          <span
+            title={elig.reason || "Passed your eligibility rules"}
+            className="mono cursor-help rounded-sm border border-emerald-300 bg-emerald-100 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300"
+          >
+            eligible
           </span>
         ) : null}
         {note ? (

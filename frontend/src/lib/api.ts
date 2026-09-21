@@ -68,6 +68,15 @@ export type Job = {
   created_at: string;
   score?: number | null;
   track?: string | null;
+
+  /** Stored eligibility verdict: pass | veto | unknown (null = never checked). */
+  eligibility?: string | null;
+  eligibility_rule?: string | null;
+  eligibility_reason?: string | null;
+  /** JSON array of the phrases that decided the verdict. */
+  eligibility_signals?: string | null;
+  /** True when the eligibility engine (not you) set the current status. */
+  eligibility_applied?: boolean;
 };
 
 export type Match = {
@@ -155,12 +164,62 @@ export type SourceInfo = {
 export type AppSettings = {
   sources: Record<string, boolean>;
   recruiter_countries: string[];
+  eligibility?: EligibilityRules;
 };
+
+/** The operator's eligibility policy (settings.yaml → eligibility). */
+export type EligibilityRules = {
+  enabled?: boolean;
+  worldwide_remote_ok?: boolean;
+  sponsored_relocation_ok?: boolean;
+  veto_country_bounded_remote?: boolean;
+  veto_local_work_permit?: boolean;
+  honor_work_authorized_countries?: boolean;
+  veto_unknown?: boolean;
+  work_authorized_countries?: string[];
+  worldwide_phrases?: string[];
+  sponsorship_phrases?: string[];
+  relocation_phrases?: string[];
+  country_bounded_phrases?: string[];
+  work_permit_phrases?: string[];
+  work_permit_country_phrases?: string[];
+  relocation_hint?: string;
+};
+
+/** Stored or previewed verdict for one posting. */
+export type EligibilityVerdict = {
+  status: "pass" | "veto" | "unknown" | string;
+  rule: string;
+  reason: string;
+  signals: string[] | null;
+  countries: string[] | null;
+  highlights_relocation: boolean;
+};
+
+export type EligibilityCatalogEntry = { code: string; name: string };
 
 export type SettingsResponse = {
   settings: AppSettings;
   sources: SourceInfo[];
   defaults?: string[];
+  eligibility_defaults?: EligibilityRules;
+  eligibility_catalog?: EligibilityCatalogEntry[];
+};
+
+export type PreviewEligibilityResponse = {
+  verdict: EligibilityVerdict;
+  rules: EligibilityRules;
+};
+
+export type ReapplyEligibilityResponse = {
+  result: {
+    checked: number;
+    vetoed: number;
+    restored: number;
+    unchanged: number;
+    skipped: number;
+    examples: string[] | null;
+  };
 };
 
 /** Result of probing one source (GET /api/sources/health). */
@@ -261,9 +320,26 @@ export const api = {
   saveSettings: (payload: {
     sources?: Record<string, boolean>;
     recruiter_countries?: string[];
+    eligibility?: EligibilityRules;
   }) =>
     request<SettingsResponse>(`/api/settings`, {
       method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  previewEligibility: (payload: {
+    title?: string;
+    location?: string;
+    description?: string;
+    is_remote?: boolean;
+    rules?: EligibilityRules;
+  }) =>
+    request<PreviewEligibilityResponse>(`/api/eligibility/preview`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  reapplyEligibility: (payload: { rules?: EligibilityRules } = {}) =>
+    request<ReapplyEligibilityResponse>(`/api/eligibility/reapply`, {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
   sourcesHealth: () =>
@@ -317,6 +393,33 @@ export function parseSkills(raw: string | null | undefined): string[] {
   } catch {
     return [];
   }
+}
+
+/** The rule labels shown on cards and the role detail panel. */
+export const ELIGIBILITY_RULE_LABEL: Record<string, string> = {
+  disabled: "rules off",
+  worldwide_remote: "worldwide / hire-anywhere",
+  sponsored_relocation: "visa sponsorship + relocation",
+  authorized_country_remote: "your work-authorized country",
+  country_bounded_remote: "country-bounded remote",
+  local_work_permit: "needs existing work rights",
+  no_signal: "no signal — passed through",
+  unknown_vetoed: "no signal — you reject unknown",
+};
+
+/** One-line summary of a stored verdict for badges and tooltips. */
+export function eligibilitySummary(job: {
+  eligibility?: string | null;
+  eligibility_reason?: string | null;
+}): { status: string; label: string; reason: string } {
+  const status = job.eligibility ?? "unknown";
+  const label =
+    status === "veto"
+      ? "veto"
+      : status === "pass"
+        ? "eligible"
+        : "unchecked";
+  return { status, label, reason: job.eligibility_reason ?? "" };
 }
 
 export function trackFromResumePath(path: string | null | undefined): string {

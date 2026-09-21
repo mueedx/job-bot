@@ -42,6 +42,7 @@ type IngestStatus struct {
 	Scored        int               `json:"scored"`
 	Drafted       int               `json:"drafted"`
 	SkippedOld    int               `json:"skipped_old"`
+	Vetoed        int               `json:"vetoed"`
 	SourceErrors  map[string]string `json:"source_errors"`
 	Message       string            `json:"message"`
 	Logs          []IngestLogLine   `json:"logs"`
@@ -208,6 +209,14 @@ func (ing *Ingestor) execute(ctx context.Context) IngestStatus {
 		ing.logLine("info", skip.Label+" skipped: "+skip.Reason)
 	}
 
+	// Eligibility rules apply to every posting in this run; the hint is the
+	// operator's own wording for sponsored-relocation roles.
+	rules := settings.Eligibility.WithDefaults()
+	if !on(rules.Enabled) {
+		ing.logLine("info", "Eligibility rules are off — nothing will be filtered.")
+	}
+	draftOpts := DraftOptions{RelocationHint: rules.RelocationHint}
+
 	ing.setStatus(func(s *IngestStatus) {
 		s.Phase = "fetching"
 		s.SourcesTotal = len(list)
@@ -249,7 +258,7 @@ func (ing *Ingestor) execute(ctx context.Context) IngestStatus {
 	})
 	ing.logLine("info", fmt.Sprintf("Matching %d postings…", len(all)))
 
-	inserted, scored, drafted, skippedOld := 0, 0, 0, 0
+	inserted, scored, drafted, skippedOld, vetoed, vetoedLogged := 0, 0, 0, 0, 0, 0
 	cutoff := JobAgeCutoff()
 	if cutoff != nil {
 		ing.logLine("info", fmt.Sprintf("Keeping postings from the last %d days only.", JobMaxAgeDays()))
@@ -318,16 +327,38 @@ func (ing *Ingestor) execute(ctx context.Context) IngestStatus {
 			ScoreReasons:  &reasons,
 			ScoredAt:      time.Now().UTC(),
 		})
+		// Eligibility: decide whether this role is worth an application before
+		// any effort is spent. A veto archives the posting, skips drafting and
+		// skips alerts — that is the whole point of the rules.
+		liveness := EvaluateEligibility(job, rules)
 		status := result.StatusAfter
+		if liveness.Vetoed() {
+			status = StatusRejected
+			vetoed++
+		}
+		_ = ing.Store.SetJobEligibility(job.ID, db.JobEligibility{
+			Status:  liveness.Status,
+			Rule:    liveness.Rule,
+			Reason:  liveness.Reason,
+			Signals: liveness.SignalsJSON(),
+			Applied: liveness.Vetoed(),
+		})
 		_, _ = ing.Store.UpdateJob(job.ID, &models.JobPatch{Status: &status})
 		scored++
 
 		job.Status = status
+		job.Eligibility = &liveness.Status
 		match, _ := ing.Store.GetMatch(job.ID)
 
-		if ing.Drafter != nil && ing.Drafter.Enabled() && result.Score >= DraftMinScore() {
+		if liveness.Vetoed() && vetoedLogged < 3 {
+			vetoedLogged++
+			ing.logLine("info", fmt.Sprintf("Vetoed %s @ %s — %s", job.Title, job.Company, liveness.Reason))
+		}
+
+		if !liveness.Vetoed() && ing.Drafter != nil && ing.Drafter.Enabled() && result.Score >= DraftMinScore() {
 			ing.setStatus(func(s *IngestStatus) { s.Phase = "drafting" })
-			if err := ing.Drafter.DraftAndSave(ctx, job, match); err != nil {
+			draftOpts.HighlightsRelocation = liveness.HighlightsRelocation
+			if err := ing.Drafter.DraftAndSave(ctx, job, match, draftOpts); err != nil {
 				log.Printf("draft job %d: %v", job.ID, err)
 				ing.logLine("warn", fmt.Sprintf("Draft skipped for %s @ %s", job.Title, job.Company))
 			} else {
@@ -335,7 +366,7 @@ func (ing *Ingestor) execute(ctx context.Context) IngestStatus {
 			}
 		}
 
-		if ing.Notifier != nil && match != nil && result.Score >= NotifyMinScore() {
+		if !liveness.Vetoed() && ing.Notifier != nil && match != nil && result.Score >= NotifyMinScore() {
 			ing.Notifier(job, match)
 		}
 
@@ -343,6 +374,7 @@ func (ing *Ingestor) execute(ctx context.Context) IngestStatus {
 			s.Inserted = inserted
 			s.Scored = scored
 			s.Drafted = drafted
+			s.Vetoed = vetoed
 			if s.Phase == "drafting" {
 				s.Phase = "matching"
 			}
@@ -362,6 +394,9 @@ func (ing *Ingestor) execute(ctx context.Context) IngestStatus {
 	if skippedOld > 0 {
 		summary += fmt.Sprintf(", %d skipped as older than %d days", skippedOld, JobMaxAgeDays())
 	}
+	if vetoed > 0 {
+		summary += fmt.Sprintf(", %d vetoed by your eligibility rules — no drafts written", vetoed)
+	}
 	summary += ")."
 	ing.setStatus(func(s *IngestStatus) {
 		s.Running = false
@@ -373,6 +408,7 @@ func (ing *Ingestor) execute(ctx context.Context) IngestStatus {
 		s.Scored = scored
 		s.Drafted = drafted
 		s.SkippedOld = skippedOld
+		s.Vetoed = vetoed
 		s.Message = summary
 	})
 	ing.logLine("info", summary)

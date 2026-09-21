@@ -28,6 +28,11 @@ type projectBank struct {
 		Name      string   `yaml:"name"`
 		Portfolio string   `yaml:"portfolio"`
 		Strengths []string `yaml:"strengths"`
+		// WorkAuthorization and Relocation are optional facts used only when a
+		// role passes the eligibility rules on visa sponsorship + relocation.
+		// Left empty, the drafter says nothing about them (it never invents).
+		WorkAuthorization []string `yaml:"work_authorization"`
+		Relocation        []string `yaml:"relocation"`
 	} `yaml:"candidate"`
 }
 
@@ -85,8 +90,16 @@ func (d *Drafter) loadBank() error {
 	return nil
 }
 
+// DraftOptions carries the eligibility context the drafter needs: a role that
+// passed on visa sponsorship + relocation gets a sentence about relocation
+// readiness.
+type DraftOptions struct {
+	HighlightsRelocation bool
+	RelocationHint       string
+}
+
 // DraftAndSave writes a cover letter (+ optional Q&A) into applications.
-func (d *Drafter) DraftAndSave(ctx context.Context, job *models.Job, match *models.Match) error {
+func (d *Drafter) DraftAndSave(ctx context.Context, job *models.Job, match *models.Match, opts DraftOptions) error {
 	if !d.Enabled() {
 		return fmt.Errorf("OPENAI_API_KEY not set")
 	}
@@ -103,7 +116,7 @@ func (d *Drafter) DraftAndSave(ctx context.Context, job *models.Job, match *mode
 		resumePath, _ = resumes.Path("fullstack")
 	}
 
-	letter, qa, err := d.callOpenAI(ctx, job, match, track)
+	letter, qa, err := d.callOpenAI(ctx, job, match, track, opts)
 	if err != nil {
 		return err
 	}
@@ -117,7 +130,7 @@ func (d *Drafter) DraftAndSave(ctx context.Context, job *models.Job, match *mode
 	return nil
 }
 
-func (d *Drafter) callOpenAI(ctx context.Context, job *models.Job, match *models.Match, track string) (string, string, error) {
+func (d *Drafter) callOpenAI(ctx context.Context, job *models.Job, match *models.Match, track string, opts DraftOptions) (string, string, error) {
 	model := os.Getenv("LLM_MODEL")
 	if model == "" {
 		model = "gpt-4o-mini"
@@ -132,6 +145,12 @@ func (d *Drafter) callOpenAI(ctx context.Context, job *models.Job, match *models
 	sys := fmt.Sprintf(`You write concise, professional cover letters for %s.
 Use ONLY the project facts provided. Do not invent employers, metrics, or technologies.
 Return JSON: {"cover_letter":"markdown string","custom_qa":{"Why this company?":"...","Relevant experience":"..."}}`, who)
+	// A role that passed the eligibility rules because it sponsors a visa and
+	// helps with relocation gets one grounded sentence about relocation
+	// readiness. The wording is the operator's (settings.yaml).
+	if opts.HighlightsRelocation && strings.TrimSpace(opts.RelocationHint) != "" {
+		sys += "\n" + strings.TrimSpace(opts.RelocationHint)
+	}
 
 	user := fmt.Sprintf(
 		"Track: %s\nRole: %s @ %s\nMatch notes: %s\n\nJob description:\n%s\n\nProject facts:\n%s\nPortfolio: %s",
@@ -203,6 +222,18 @@ func (d *Drafter) bankFacts(track string) string {
 	b.WriteString("\nStrengths: ")
 	b.WriteString(strings.Join(d.bank.Candidate.Strengths, "; "))
 	b.WriteString("\n")
+	// Only stated facts are offered; a missing line means the letter stays
+	// silent rather than guessing a legal status.
+	if len(d.bank.Candidate.WorkAuthorization) > 0 {
+		b.WriteString("Work authorization: ")
+		b.WriteString(strings.Join(d.bank.Candidate.WorkAuthorization, "; "))
+		b.WriteString("\n")
+	}
+	if len(d.bank.Candidate.Relocation) > 0 {
+		b.WriteString("Relocation: ")
+		b.WriteString(strings.Join(d.bank.Candidate.Relocation, "; "))
+		b.WriteString("\n")
+	}
 	for _, p := range d.bank.Projects {
 		relevant := len(p.TrackHints) == 0
 		for _, h := range p.TrackHints {

@@ -21,31 +21,35 @@ func (s *Server) loadSettingsFor(w http.ResponseWriter) (*services.Settings, boo
 	return settings, true
 }
 
-// handleGetSettings returns the source toggles and target regions, plus the
-// registry with per-source readiness so the UI can explain why a source cannot
-// run (missing key, opt-in flag).
+// handleGetSettings returns the source toggles, target regions and eligibility
+// rules, plus the registry with per-source readiness so the UI can explain why a
+// source cannot run (missing key, opt-in flag) and the eligibility defaults the
+// settings page offers as suggestions.
 func (s *Server) handleGetSettings(w http.ResponseWriter, _ *http.Request) {
 	settings, ok := s.loadSettingsFor(w)
 	if !ok {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"settings": settings,
-		"sources":  scrapers.Info(settings.Sources),
-		"defaults": services.DefaultCountries,
+		"settings":             settings,
+		"sources":              scrapers.Info(settings.Sources),
+		"defaults":             services.DefaultCountries,
+		"eligibility_defaults": services.DefaultEligibilityRules(),
+		"eligibility_catalog":  services.CountryCatalog(),
 	})
 }
 
-// handleSaveSettings replaces source toggles and/or the target regions. Both
-// fields are optional so the UI can save one without the other.
+// handleSaveSettings replaces source toggles, target regions and/or eligibility
+// rules. Every field is optional so the UI can save one without the others.
 func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 	settings, ok := s.loadSettingsFor(w)
 	if !ok {
 		return
 	}
 	var body struct {
-		Sources            *map[string]bool `json:"sources"`
-		RecruiterCountries []string         `json:"recruiter_countries"`
+		Sources            *map[string]bool           `json:"sources"`
+		RecruiterCountries []string                   `json:"recruiter_countries"`
+		Eligibility        *services.EligibilityRules `json:"eligibility"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -62,6 +66,12 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.RecruiterCountries != nil {
 		settings.RecruiterCountries = body.RecruiterCountries
+	}
+	// Eligibility merges field by field onto the current policy, so the UI can
+	// send only what changed and a partial hand-edited file stays valid.
+	if body.Eligibility != nil {
+		settings.Eligibility = settings.Eligibility.WithDefaults()
+		settings.Eligibility.Merge(body.Eligibility)
 	}
 	if err := services.SaveSettings(s.DataDir, settings); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())

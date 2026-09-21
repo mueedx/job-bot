@@ -15,13 +15,17 @@ import (
 var DefaultCountries = []string{"ie", "gb", "pk", "ae", "sa", "au", "nz", "us", "ca"}
 
 // Settings is the user-editable runtime configuration: which job sources run,
-// and which regions to target. Stored as data/settings.yaml so it can be
-// edited by hand or from the dashboard, and survives restarts.
+// which regions to target, and the eligibility rules that decide which postings
+// are worth an application. Stored as data/settings.yaml so it can be edited by
+// hand or from the dashboard, and survives restarts.
 type Settings struct {
 	Sources map[string]bool `json:"sources" yaml:"sources"`
 	// RecruiterCountries are the target regions (lowercase ISO-3166 alpha-2).
 	// They scope country-aware sources and the recruiter directory.
 	RecruiterCountries []string `json:"recruiter_countries" yaml:"recruiter_countries"`
+	// Eligibility is the policy applied to every ingested posting. Nil means the
+	// defaults (see DefaultEligibilityRules).
+	Eligibility *EligibilityRules `json:"eligibility,omitempty" yaml:"eligibility,omitempty"`
 }
 
 // SettingsPath is the settings file name inside the data directory.
@@ -35,7 +39,11 @@ func DefaultSettings() *Settings {
 		sources[spec.Name] = true
 	}
 	countries := append([]string(nil), DefaultCountries...)
-	return &Settings{Sources: sources, RecruiterCountries: countries}
+	return &Settings{
+		Sources:            sources,
+		RecruiterCountries: countries,
+		Eligibility:        DefaultEligibilityRules(),
+	}
 }
 
 func settingsFile(dataDir string) string {
@@ -68,9 +76,14 @@ func LoadSettings(dataDir string) (*Settings, error) {
 	if len(parsed.RecruiterCountries) > 0 {
 		settings.RecruiterCountries = parsed.RecruiterCountries
 	}
+	// Eligibility rules merge onto the defaults field by field, so a file that
+	// only mentions one rule keeps the stated policy for the rest.
+	settings.Eligibility = settings.Eligibility.WithDefaults()
+	settings.Eligibility.Merge(parsed.Eligibility)
 	if err := settings.Validate(); err != nil {
 		return nil, fmt.Errorf("validate %s: %w", path, err)
 	}
+	// Validate normalises but must not drop the defaults again.
 	return settings, nil
 }
 
@@ -101,7 +114,7 @@ func (s *Settings) Validate() error {
 		}
 	}
 	s.RecruiterCountries = codes
-	return nil
+	return s.Eligibility.Validate()
 }
 
 func isLowerAlpha(s string) bool {

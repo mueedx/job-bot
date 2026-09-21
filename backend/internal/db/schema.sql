@@ -13,7 +13,15 @@ CREATE TABLE IF NOT EXISTS jobs (
     description         TEXT NOT NULL,
     posted_at           DATETIME,
     status              TEXT DEFAULT 'discovered',
-    created_at          DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+    -- Eligibility rules (services.EligibilityRules): the stored verdict, the
+    -- rule that decided it, a human-readable reason, the matched phrases as a
+    -- JSON array, and whether the engine (rather than the operator) set status.
+    eligibility         TEXT,
+    eligibility_rule    TEXT,
+    eligibility_reason  TEXT,
+    eligibility_signals TEXT,
+    eligibility_applied BOOLEAN DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS matches (

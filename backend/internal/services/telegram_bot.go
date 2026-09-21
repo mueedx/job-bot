@@ -145,10 +145,14 @@ func (t *TelegramBot) handleUpdate(u tgUpdate) {
 		case "discard":
 			status := "rejected"
 			_, _ = t.Store.UpdateJob(id, &models.JobPatch{Status: &status})
+			// The operator decided from Telegram: the eligibility engine must
+			// not move this card again on the next rules re-check.
+			_ = t.Store.ClearEligibilityApplied(id)
 			t.reply(t.ChatID, fmt.Sprintf("Discarded job #%d", id))
 		case "approve":
 			status := "approved"
 			_, _ = t.Store.UpdateJob(id, &models.JobPatch{Status: &status})
+			_ = t.Store.ClearEligibilityApplied(id)
 			t.reply(t.ChatID, fmt.Sprintf(
 				"Job #%d marked approved. Submission dispatcher not implemented yet (Phase 5) — application was NOT sent.",
 				id,

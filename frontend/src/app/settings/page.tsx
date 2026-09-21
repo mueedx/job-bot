@@ -3,10 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   api,
+  type EligibilityRules,
   type SettingsResponse,
   type SourceHealth,
   type SourceInfo,
 } from "@/lib/api";
+import {
+  EligibilityRulesSection,
+  EligibilityTester,
+} from "@/components/EligibilityRules";
 
 const KIND_LABEL: Record<string, string> = {
   board: "company boards",
@@ -26,6 +31,7 @@ export default function SettingsPage() {
     null,
   );
   const [checking, setChecking] = useState(false);
+  const [reassessing, setReassessing] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -115,6 +121,36 @@ export default function SettingsPage() {
     setError(null);
   }
 
+  function updateEligibility(patch: Partial<EligibilityRules>) {
+    setData((d) => {
+      if (!d) return d;
+      return {
+        ...d,
+        settings: {
+          ...d.settings,
+          eligibility: { ...d.settings.eligibility, ...patch },
+        },
+      };
+    });
+    setNotice(null);
+  }
+
+  async function reapply() {
+    setReassessing(true);
+    setError(null);
+    try {
+      const res = await api.reapplyEligibility({ rules: settings.eligibility });
+      const r = res.result;
+      setNotice(
+        `Re-checked ${r.checked} postings — ${r.vetoed} newly vetoed, ${r.restored} restored, ${r.skipped} left as you set them.`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Re-check failed");
+    } finally {
+      setReassessing(false);
+    }
+  }
+
   async function save() {
     setSaving(true);
     setError(null);
@@ -123,6 +159,7 @@ export default function SettingsPage() {
       const saved = await api.saveSettings({
         sources: settings.sources,
         recruiter_countries: settings.recruiter_countries,
+        eligibility: settings.eligibility,
       });
       setData(saved);
       setNotice("Settings saved — the next search uses them.");
@@ -262,6 +299,17 @@ export default function SettingsPage() {
           </div>
         ) : null}
       </section>
+
+      <EligibilityRulesSection
+        rules={settings.eligibility ?? data.eligibility_defaults ?? {}}
+        defaults={data.eligibility_defaults}
+        catalog={data.eligibility_catalog ?? []}
+        onChange={updateEligibility}
+        onReapply={() => void reapply()}
+        reassessing={reassessing}
+      />
+
+      <EligibilityTester rules={settings.eligibility ?? {}} />
     </div>
   );
 }

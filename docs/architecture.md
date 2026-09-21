@@ -37,8 +37,9 @@ job-bot/
 |   `---- .env.example
 |-- frontend/                   # Next.js 15 dashboard
 |-- docs/
-|   |-- architecture.md         # this file
-|   `---- job-agent-spec.md       # planning context (not a live description)
+|   |-- architecture.md         # how the code is organised
+|   |-- tech-stack.md           # stack choices, DB rationale, algorithms & principles
+|   `-- job-agent-spec.md       # planning context (not a live description)
 |-- data/                       # runtime data: DB, editable YAML -- gitignored
 |-- resumes/                    # candidate PDFs -- gitignored
 `---- README.md

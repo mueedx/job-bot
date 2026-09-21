@@ -8,8 +8,10 @@ import { ActionBar } from "@/components/ActionBar";
 import { CoverLetterEditor } from "@/components/CoverLetterEditor";
 import {
   api,
+  eligibilitySummary,
   parseSkills,
   trackFromResumePath,
+  type Job,
   type JobDetail,
 } from "@/lib/api";
 import { sourceNote } from "@/lib/sourceNotes";
@@ -222,6 +224,13 @@ export default function JobDetailPage() {
               <p className="text-sm text-[var(--muted)]">No match data yet.</p>
             )}
           </div>
+
+          <div className="rounded-sm border border-[var(--line)] bg-[var(--panel)] p-4">
+            <h3 className="mono mb-3 text-[11px] uppercase tracking-[0.12em] text-[var(--muted)]">
+              Eligibility
+            </h3>
+            <EligibilityPanel job={job} />
+          </div>
         </div>
       </section>
 
@@ -240,6 +249,52 @@ export default function JobDetailPage() {
         onDiscard={() => void discard()}
         onSwitchTrack={() => void switchTrack()}
       />
+    </div>
+  );
+}
+
+function EligibilityPanel({ job }: { job: Job }) {
+  const elig = eligibilitySummary(job);
+  const label =
+    elig.status === "pass"
+      ? "Eligible"
+      : elig.status === "veto"
+        ? "Vetoed"
+        : "Not checked";
+
+  const tone = (status: string) =>
+    status === "veto"
+      ? "border-red-300 bg-red-100 text-red-800 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-300"
+      : status === "pass"
+        ? "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300"
+        : "border-[var(--line)] text-[var(--muted)]";
+
+  return (
+    <div className="space-y-2 text-sm">
+      <span
+        className={`mono inline-block rounded-sm border px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${tone(elig.status)}`}
+      >
+        {label}
+      </span>
+      {elig.reason ? (
+        <p className="text-[var(--ink)]">{elig.reason}</p>
+      ) : (
+        <p className="text-[var(--muted)]">
+          Run an ingest or re-check from Settings to evaluate this role against
+          your eligibility rules.
+        </p>
+      )}
+      {job.eligibility_rule ? (
+        <p className="mono text-[10px] uppercase tracking-wide text-[var(--muted)]">
+          Rule · {job.eligibility_rule}
+        </p>
+      ) : null}
+      {job.eligibility_applied ? (
+        <p className="text-xs text-[var(--muted)]">
+          Set automatically — move the card by hand and the engine will stop
+          owning it.
+        </p>
+      ) : null}
     </div>
   );
 }
